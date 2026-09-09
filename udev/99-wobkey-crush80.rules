@@ -1,0 +1,5 @@
+# Crush 80 wired keyboard: VIA and OTA HID interfaces.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="320f", ATTRS{idProduct}=="5055", MODE="0660", GROUP="plugdev"
+
+# Crush 80 2.4 GHz receiver: VIA HID interface.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="320f", ATTRS{idProduct}=="5088", MODE="0660", GROUP="plugdev"

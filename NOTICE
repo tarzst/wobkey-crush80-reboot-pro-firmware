@@ -1,0 +1,5 @@
+The MIT license covers the original patching, flashing and test code in this
+repository. The WOBKEY/WOBLAB firmware binaries and VIA device definition are
+included for reproducibility and remain the property of their respective
+copyright holders. The original firmware was obtained from:
+https://woblab.cn/col.jsp?id=126
