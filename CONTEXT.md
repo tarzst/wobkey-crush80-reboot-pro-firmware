@@ -28,6 +28,10 @@ proof that every transport, interrupt and power-management case is safe.
    replaced five macro bindings with native `QK_MODS` and confirmed they work.
 7. Public packaging preserves those exact bytes, publishes replacement C/
    assembly sources and a fixed linker placement, and reproduces the same SHA.
+8. GitHub prerelease `v1.1.0-nativeheld-preview.1` was published at commit
+   `42cae6a`, with the exact BIN, reference ELF, manifest and asset checksums.
+   English and Russian READMEs now lead with that preview, link both releases
+   and use NativeHeld in the main installation example.
 
 ## Files and architecture
 
