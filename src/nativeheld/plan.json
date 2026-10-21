@@ -1,0 +1,519 @@
+{
+  "regions": [
+    [
+      52428,
+      52530
+    ],
+    [
+      55816,
+      55840
+    ],
+    [
+      55892,
+      56016
+    ],
+    [
+      56076,
+      59226
+    ],
+    [
+      76840,
+      77588
+    ],
+    [
+      78444,
+      78462
+    ],
+    [
+      78784,
+      78852
+    ],
+    [
+      78892,
+      78908
+    ],
+    [
+      79384,
+      79396
+    ],
+    [
+      79580,
+      79604
+    ],
+    [
+      79688,
+      80192
+    ],
+    [
+      80320,
+      80432
+    ],
+    [
+      81400,
+      83138
+    ],
+    [
+      114032,
+      114120
+    ],
+    [
+      114280,
+      114776
+    ],
+    [
+      114824,
+      115104
+    ],
+    [
+      115232,
+      115416
+    ],
+    [
+      115440,
+      115468
+    ]
+  ],
+  "allocated_bytes": 7613,
+  "capacity_bytes": 7716,
+  "linked_sections": [
+    {
+      "name": ".text.cdb_hook_reset_common",
+      "address": 536923340,
+      "size": 18,
+      "sha256": "7f843fa11fc07284c6b19ea70e098bf663b2c85d351d2c9caba476a7e9fe1b62"
+    },
+    {
+      "name": ".rodata.callers.0",
+      "address": 536923360,
+      "size": 32,
+      "sha256": "0e83b8ae4e461a314162ff007cca17e23293e43f6ea6c651d03ed254812d765b"
+    },
+    {
+      "name": ".text.cdb_hook_physical",
+      "address": 536923392,
+      "size": 50,
+      "sha256": "b15aa6fac62beb17a94dc804f26f58fd94d389c969cb907f74a845744d0f15d5"
+    },
+    {
+      "name": ".text.irq_guard",
+      "address": 536926728,
+      "size": 24,
+      "sha256": "85d16bf576101d35923c577d92928dee547cbc4d9a13ef3d8db19a9bb5f87dd1"
+    },
+    {
+      "name": ".text.cdb_reset_end",
+      "address": 536926804,
+      "size": 60,
+      "sha256": "d72f8d983470f71e50bde1e71b79c73050fc0587089de87a1502dc78918a8fd8"
+    },
+    {
+      "name": ".text.cm_init.part.0.constprop.0.isra.0",
+      "address": 536926864,
+      "size": 62,
+      "sha256": "c405c00ee2c36b479dc03b70cdece2b5682a1cfe12100f4800937ac527c8e445"
+    },
+    {
+      "name": ".text.cm_step.constprop.0",
+      "address": 536926988,
+      "size": 988,
+      "sha256": "15af8337628ee19982c6bdf5126731932f91458cff66e0c63ebd3deb0fe96529"
+    },
+    {
+      "name": ".text.cdb_physical",
+      "address": 536927976,
+      "size": 574,
+      "sha256": "6bb7d57f11cd5c19f545d68b2488acaa845d8a0293cf716ff25d7ebf47d73218"
+    },
+    {
+      "name": ".text.cdb_via_packet",
+      "address": 536928550,
+      "size": 946,
+      "sha256": "d95a4738a1a77d4037ea8744a99b547b2a77afc60b289e950d52f01a2474ef39"
+    },
+    {
+      "name": ".text.update",
+      "address": 536929496,
+      "size": 618,
+      "sha256": "ff097cb4f573cd5839efc73ae7c02ce080ae6731bcafba792f6dabc050e237a8"
+    },
+    {
+      "name": ".text.reset",
+      "address": 536947752,
+      "size": 328,
+      "sha256": "70bc88b6b9ee09a7a2b605d69daee0fbbccab2b99ff404916c0a425cc8559f50"
+    },
+    {
+      "name": ".text.cdb_synthetic",
+      "address": 536948080,
+      "size": 222,
+      "sha256": "03c0233ed1804fa356c4aa81f41c842a022295a77b585447d026cc822eb35eba"
+    },
+    {
+      "name": ".text.apply.constprop.0",
+      "address": 536948302,
+      "size": 178,
+      "sha256": "525c05bf159a098f3bc1b50a4bc1d5a0139ebabaa8d2e9c7e1bc6b1578ef991e"
+    },
+    {
+      "name": ".text.clear",
+      "address": 536949356,
+      "size": 18,
+      "sha256": "4478c1fb05d2e07ea1639beb0dcdd06cc44aefc5d38d283fb285f9cf107b2d33"
+    },
+    {
+      "name": ".rodata.characters.1",
+      "address": 536949696,
+      "size": 34,
+      "sha256": "73c9102a13f0246965a7441fd377b7ebfa3bac10dc375bbe72225f7c281f937a"
+    },
+    {
+      "name": ".text.enabled",
+      "address": 536949730,
+      "size": 34,
+      "sha256": "ad9368d93bfe632db240bff7fcf466296c4a45591e427ace53e44cdbcd655e39"
+    },
+    {
+      "name": ".text.cdb_oem_common",
+      "address": 536949804,
+      "size": 8,
+      "sha256": "4f668924c1c0a7392a27b9f0e6716566791e09569036b3ff266effcc3a0150bc"
+    },
+    {
+      "name": ".text.cdb_hook_via",
+      "address": 536950296,
+      "size": 10,
+      "sha256": "67dd143e7512eb7e043af3e224bd6e7722de64731a32e6dd9b6a4598b5b0084b"
+    },
+    {
+      "name": ".text.cdb_hook_synthetic",
+      "address": 536950492,
+      "size": 18,
+      "sha256": "7a14aa7871c4345ab8bf0f8dd086ab8ee3e09cd34cd5f5379d52d49feb9d72ab"
+    },
+    {
+      "name": ".text.ccd_macro_action",
+      "address": 536950600,
+      "size": 186,
+      "sha256": "297ccbe0752180462a069737cee36bd10ddaeb220a13f59a63671cb50ca68284"
+    },
+    {
+      "name": ".text.cdb_reset_finish",
+      "address": 536950786,
+      "size": 168,
+      "sha256": "1b46bbbbae1f69c652b2a412f9e23e6c8efa21a7caa0e0d74cda25fc0f8cf2b7"
+    },
+    {
+      "name": ".text.cch_decode",
+      "address": 536950954,
+      "size": 144,
+      "sha256": "f2be756b28af04621ce24461fced08d789651a9e6da447b693e572def22d6183"
+    },
+    {
+      "name": ".text.cm_cancel.constprop.0.isra.0",
+      "address": 536951232,
+      "size": 48,
+      "sha256": "a6a27dc921cab848298c7235a0cbf1af65e880e238109537ae077f916334eb4a"
+    },
+    {
+      "name": ".text.cdb_save_callers",
+      "address": 536951280,
+      "size": 32,
+      "sha256": "36e7f5fab81f18d317be562bd5a71c80494f28de967b22c735987caf80017079"
+    },
+    {
+      "name": ".text.valid_writer",
+      "address": 536951312,
+      "size": 32,
+      "sha256": "6b643bbb7b86f1fd33c307c9ffdf8cd6aefad1893edb42ca744418ee0cd5cc9c"
+    },
+    {
+      "name": ".text.cdb_macro_poll",
+      "address": 536952312,
+      "size": 400,
+      "sha256": "fff3ccebfe568194dd2c06cf11ffb00ff920369583e3a62f4ea502c48fa22133"
+    },
+    {
+      "name": ".text.ccd_synthetic.constprop.0",
+      "address": 536952712,
+      "size": 250,
+      "sha256": "42a67fafefc1b3a55b312ce067ea1f34acd46d50ce31deaa3aa71075f8c20614"
+    },
+    {
+      "name": ".text.cdb_macro_chunk",
+      "address": 536952962,
+      "size": 706,
+      "sha256": "828eea9eda5c75ecc7574c81956b12bb10c84be24c68f4244c4be6d49d98020f"
+    },
+    {
+      "name": ".text.keymap_write.part.0",
+      "address": 536953668,
+      "size": 206,
+      "sha256": "ca073800ed8de2d19651ab2113ff64739c73a0e821d822971fe5980243a8455a"
+    },
+    {
+      "name": ".text.cdb_macro_scan",
+      "address": 536953874,
+      "size": 174,
+      "sha256": "248d3f3139e1c6a72fc52b5855048602d0bcb4e63650c9b152a7a9f0c5b70476"
+    },
+    {
+      "name": ".rodata.actions.0",
+      "address": 536984944,
+      "size": 33,
+      "sha256": "56b8230153ebb3341b6d1f205337e2f8cde0ca19c1b9bbc5dfc40521730dfc60"
+    },
+    {
+      "name": ".text.cdb_reset_begin",
+      "address": 536984978,
+      "size": 54,
+      "sha256": "d271d9f790adfcd41e353e62c6d3606a55ab8ab2912e97f3fdfd6710a92ee524"
+    },
+    {
+      "name": ".rodata.cdb_via_packet",
+      "address": 536985192,
+      "size": 84,
+      "sha256": "82233fd1c19131a8ae3e60be4f9bd1791adf5cc6b29644f34a8e2458a9f59594"
+    },
+    {
+      "name": ".text.take_macro_request",
+      "address": 536985276,
+      "size": 184,
+      "sha256": "5cd15e6a99dc5f5a4b094400a51d34e3f23746f4574a0a74ce4f61d451718d0c"
+    },
+    {
+      "name": ".text.cdb_macro_empty",
+      "address": 536985460,
+      "size": 118,
+      "sha256": "544ec4437f87d7a8a575f5afa095d466e6230da655b715db76a9f1cd1572a1e7"
+    },
+    {
+      "name": ".text.keymap_read",
+      "address": 536985578,
+      "size": 110,
+      "sha256": "180fc550cf965a511851de52161044edc82203f76857b71dfcd31042877c4648"
+    },
+    {
+      "name": ".rodata.cch_rc2_builtin_dictionary",
+      "address": 536985736,
+      "size": 36,
+      "sha256": "c6929baf02b98381d76017f0cbfc71daddaec4fdd96e376037c8014b6b36cd10"
+    },
+    {
+      "name": ".text.cdb_hook_ready",
+      "address": 536985772,
+      "size": 34,
+      "sha256": "1ec2d941abdfbf12b805678a49a061d8bb54952ec3368ccc91d0f6602bcb1674"
+    },
+    {
+      "name": ".text.cdb_reset_common",
+      "address": 536985806,
+      "size": 150,
+      "sha256": "724b0aa0b0b2f85a0ca4569b4a38a6df70376f2092951031f56f75a7a1670002"
+    },
+    {
+      "name": ".text.emit",
+      "address": 536985956,
+      "size": 58,
+      "sha256": "bdb666249d02f85414e73b685209837b8f14d72538ffdf6ad1d92a316528fee5"
+    },
+    {
+      "name": ".text.cdb_ready",
+      "address": 536986144,
+      "size": 108,
+      "sha256": "f6da6dec36817418cc20e3c7e1b4b8198beb5c706205cbc92dc014c93819827f"
+    },
+    {
+      "name": ".text.keyboard",
+      "address": 536986252,
+      "size": 40,
+      "sha256": "ad224f19909ac427096068b316948909a49025343d79938cfbc6bdbd8014b954"
+    },
+    {
+      "name": ".text.cdb_restore_return",
+      "address": 536986292,
+      "size": 36,
+      "sha256": "873a0067205b93b0ced79fdea9cac7721d8197c922525c70fc570fdd60b58589"
+    }
+  ],
+  "base_sha256": "31722203eab882eb436b80c2bf02ee54d32c125b7474700c40a220c2b883918b",
+  "output_sha256": "7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35",
+  "output_crc": "350ad5c5",
+  "size": 124436,
+  "hooks": [
+    {
+      "offset": 78440,
+      "target": 536923392,
+      "link_register": 0,
+      "symbol": "cdb_hook_physical",
+      "kind": "JAL"
+    },
+    {
+      "offset": 36796,
+      "target": 536950492,
+      "link_register": 0,
+      "symbol": "cdb_hook_synthetic",
+      "kind": "JAL"
+    },
+    {
+      "offset": 52428,
+      "target": 536923340,
+      "link_register": 0,
+      "symbol": "cdb_hook_reset_common",
+      "kind": "replaced-component-entry"
+    },
+    {
+      "offset": 81400,
+      "target": 536952312,
+      "link_register": 0,
+      "symbol": "cdb_macro_poll",
+      "kind": "replaced-component-entry"
+    },
+    {
+      "offset": 110048,
+      "target": 536985772,
+      "link_register": 0,
+      "symbol": "cdb_hook_ready",
+      "kind": "JAL"
+    },
+    {
+      "offset": 55812,
+      "target": 536950296,
+      "link_register": 0,
+      "symbol": "cdb_hook_via",
+      "kind": "JAL"
+    },
+    {
+      "offset": 60448,
+      "target": 536953874,
+      "link_register": 1,
+      "symbol": "cdb_macro_scan",
+      "kind": "JAL"
+    },
+    {
+      "offset": 60860,
+      "target": 536985460,
+      "link_register": 1,
+      "symbol": "cdb_macro_empty",
+      "kind": "JAL"
+    },
+    {
+      "offset": 68628,
+      "target": 536984978,
+      "link_register": 1,
+      "symbol": "cdb_reset_begin",
+      "kind": "JAL"
+    },
+    {
+      "offset": 68688,
+      "target": 536926804,
+      "link_register": 1,
+      "symbol": "cdb_reset_end",
+      "kind": "JAL"
+    },
+    {
+      "offset": 69816,
+      "target": 536984978,
+      "link_register": 1,
+      "symbol": "cdb_reset_begin",
+      "kind": "JAL"
+    },
+    {
+      "offset": 69868,
+      "target": 536926804,
+      "link_register": 1,
+      "symbol": "cdb_reset_end",
+      "kind": "JAL"
+    },
+    {
+      "offset": 76084,
+      "target": 536984978,
+      "link_register": 1,
+      "symbol": "cdb_reset_begin",
+      "kind": "JAL"
+    },
+    {
+      "offset": 76136,
+      "target": 536926804,
+      "link_register": 1,
+      "symbol": "cdb_reset_end",
+      "kind": "JAL"
+    },
+    {
+      "offset": 112424,
+      "target": 536984978,
+      "link_register": 1,
+      "symbol": "cdb_reset_begin",
+      "kind": "JAL"
+    },
+    {
+      "offset": 112472,
+      "target": 536926804,
+      "link_register": 1,
+      "symbol": "cdb_reset_end",
+      "kind": "JAL"
+    },
+    {
+      "offset": 109260,
+      "target": 536984978,
+      "link_register": 1,
+      "symbol": "cdb_reset_begin",
+      "kind": "JAL"
+    },
+    {
+      "offset": 109360,
+      "target": 536926804,
+      "link_register": 1,
+      "symbol": "cdb_reset_end",
+      "kind": "JAL"
+    }
+  ],
+  "protected_ranges": [
+    [
+      0,
+      400
+    ],
+    [
+      400,
+      744
+    ],
+    [
+      744,
+      4784
+    ],
+    [
+      4784,
+      35764
+    ],
+    [
+      122016,
+      124428
+    ]
+  ],
+  "absolute_symbols": {
+    "cdb_workspace": 527332,
+    "cdb_oem_send": 536947504,
+    "cdb_flash_read": 536925456,
+    "cdb_flash_program": 536925580,
+    "cdb_flash_erase": 536907076,
+    "cdb_rgb_changed": 536923528,
+    "cdb_palette": 536987228,
+    "cdb_brightness_table": 536988256,
+    "cdb_oem_common_continue": 536907712,
+    "cdb_physical_handled": 536949396,
+    "cdb_physical_stock": 536949374,
+    "cdb_ready_continue": 536980964,
+    "cdb_macro_response": 536926928
+  },
+  "roots": [
+    "cdb_hook_physical",
+    "cdb_hook_synthetic",
+    "cdb_hook_ready",
+    "cdb_hook_reset_common",
+    "cdb_hook_via",
+    "cdb_reset_begin",
+    "cdb_reset_end",
+    "cdb_macro_poll",
+    "cdb_macro_scan",
+    "cdb_macro_empty"
+  ]
+}

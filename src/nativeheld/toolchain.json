@@ -1,0 +1,12 @@
+[
+  {
+    "file": "binutils-riscv64-unknown-elf_2.45.50.20251209-1ubuntu1+7build1_arm64.deb",
+    "sha256": "07f020b287519a71cc1f914bfd16984eff0e90a998958687b6a6f04cf57e1297",
+    "metadata": "Package: binutils-riscv64-unknown-elf\nVersion: 2.45.50.20251209-1ubuntu1+7build1\nArchitecture: arm64\n"
+  },
+  {
+    "file": "gcc-riscv64-unknown-elf_14.2.0+19_arm64.deb",
+    "sha256": "f075b25f3c0c306495c5bfc5a486729192c7847888f3427f7989b5ec6f516644",
+    "metadata": "Package: gcc-riscv64-unknown-elf\nVersion: 14.2.0+19\nArchitecture: arm64\n"
+  }
+]

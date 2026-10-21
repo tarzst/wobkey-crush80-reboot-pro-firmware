@@ -1,0 +1,202 @@
+{
+  "release": "NativeHeld preview 2026-10-21",
+  "status": "Hardware-tested on one Reboot Pro RGB; experimental preview with known limitations. See docs/NATIVEHELD.md.",
+  "image": {
+    "file": "firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin",
+    "size": 124436,
+    "sha256": "7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35",
+    "ota_crc": "350ad5c5"
+  },
+  "base_sha256": "31722203eab882eb436b80c2bf02ee54d32c125b7474700c40a220c2b883918b",
+  "allocated_bytes": 7613,
+  "capacity_bytes": 7716,
+  "hooks": [
+    {
+      "offset": 78440,
+      "target": 536923392,
+      "link_register": 0,
+      "symbol": "cdb_hook_physical",
+      "kind": "JAL"
+    },
+    {
+      "offset": 36796,
+      "target": 536950492,
+      "link_register": 0,
+      "symbol": "cdb_hook_synthetic",
+      "kind": "JAL"
+    },
+    {
+      "offset": 52428,
+      "target": 536923340,
+      "link_register": 0,
+      "symbol": "cdb_hook_reset_common",
+      "kind": "replaced-component-entry"
+    },
+    {
+      "offset": 81400,
+      "target": 536952312,
+      "link_register": 0,
+      "symbol": "cdb_macro_poll",
+      "kind": "replaced-component-entry"
+    },
+    {
+      "offset": 110048,
+      "target": 536985772,
+      "link_register": 0,
+      "symbol": "cdb_hook_ready",
+      "kind": "JAL"
+    },
+    {
+      "offset": 55812,
+      "target": 536950296,
+      "link_register": 0,
+      "symbol": "cdb_hook_via",
+      "kind": "JAL"
+    },
+    {
+      "offset": 60448,
+      "target": 536953874,
+      "link_register": 1,
+      "symbol": "cdb_macro_scan",
+      "kind": "JAL"
+    },
+    {
+      "offset": 60860,
+      "target": 536985460,
+      "link_register": 1,
+      "symbol": "cdb_macro_empty",
+      "kind": "JAL"
+    },
+    {
+      "offset": 68628,
+      "target": 536984978,
+      "link_register": 1,
+      "symbol": "cdb_reset_begin",
+      "kind": "JAL"
+    },
+    {
+      "offset": 68688,
+      "target": 536926804,
+      "link_register": 1,
+      "symbol": "cdb_reset_end",
+      "kind": "JAL"
+    },
+    {
+      "offset": 69816,
+      "target": 536984978,
+      "link_register": 1,
+      "symbol": "cdb_reset_begin",
+      "kind": "JAL"
+    },
+    {
+      "offset": 69868,
+      "target": 536926804,
+      "link_register": 1,
+      "symbol": "cdb_reset_end",
+      "kind": "JAL"
+    },
+    {
+      "offset": 76084,
+      "target": 536984978,
+      "link_register": 1,
+      "symbol": "cdb_reset_begin",
+      "kind": "JAL"
+    },
+    {
+      "offset": 76136,
+      "target": 536926804,
+      "link_register": 1,
+      "symbol": "cdb_reset_end",
+      "kind": "JAL"
+    },
+    {
+      "offset": 112424,
+      "target": 536984978,
+      "link_register": 1,
+      "symbol": "cdb_reset_begin",
+      "kind": "JAL"
+    },
+    {
+      "offset": 112472,
+      "target": 536926804,
+      "link_register": 1,
+      "symbol": "cdb_reset_end",
+      "kind": "JAL"
+    },
+    {
+      "offset": 109260,
+      "target": 536984978,
+      "link_register": 1,
+      "symbol": "cdb_reset_begin",
+      "kind": "JAL"
+    },
+    {
+      "offset": 109360,
+      "target": 536926804,
+      "link_register": 1,
+      "symbol": "cdb_reset_end",
+      "kind": "JAL"
+    }
+  ],
+  "protected_ranges": [
+    [
+      0,
+      400
+    ],
+    [
+      400,
+      744
+    ],
+    [
+      744,
+      4784
+    ],
+    [
+      4784,
+      35764
+    ],
+    [
+      122016,
+      124428
+    ]
+  ],
+  "payload": {
+    "file": "firmware/nativeheld/NativeHeld-20261021.elf",
+    "sha256": "baec695df7bac8683a220bfc28facca872ae265658daca7eebd276d1cb53952d"
+  },
+  "hardware_confirmed": [
+    "Native held combinations on macOS over USB",
+    "VIA commands and macros",
+    "Fn layers",
+    "BLE typing",
+    "Layout persistence after reconnect",
+    "RGB effect 5 across USB/BLE/USB"
+  ],
+  "limitations_document": "docs/NATIVEHELD.md",
+  "sources": {
+    "src/nativeheld/compact/compact_holds.c": "c11a393053081048374958bdc6ac17d6b14b3fca10e7ee830ea49da3f6c9cd11",
+    "src/nativeheld/compact/compact_holds.h": "fb0a3b79a844ddb2e587804c2a81563c3a900629e91e300842857beb32bba03c",
+    "src/nativeheld/compact/delta_adapter.c": "d56987fc4159c8f1fc0d68795c9d028bf44ec72859bd7a5c43fb55c2069205a3",
+    "src/nativeheld/compact/delta_adapter.h": "ba50d4074a0e6c65b4cff8a35f5f598b41bc420545f68861093459ac90a19e28",
+    "src/nativeheld/compact/firmware_binding.c": "a697aa0cec53c59f85270563afae0ebb143aba0f59ccee70b980c10041556e06",
+    "src/nativeheld/compact/firmware_binding.h": "8660626b9c622119acbf29443874058f5da8f1bba533ce8e277546c1c678a262",
+    "src/nativeheld/compact/firmware_hooks.S": "11b0412bc6c905f3734f6da46eecc3891428e3b2cd8bc20944fc74aa56d5d4b7",
+    "src/nativeheld/compact/macro_stream.c": "ea54c3aa2959230392c008ff913162d364a4d1759ce3c1ca72a7e68b8dff7cdb",
+    "src/nativeheld/compact/macro_stream.h": "d7e5b51f014e9f3e95c6813c4a36fc5e36578176696125ae997bb479b3cb44ec",
+    "src/nativeheld/compact/rc2_builtin_dictionary.h": "003ee0d3d33f618c4213f4e96719fbdca73f44f098a941661cd801bf7926b2f1",
+    "src/nativeheld/compact/via_commands.c": "70f0f25d550f9d937aeb753a1b6d895eb6ed2a5136b9bf548e3432a498d5a60c",
+    "src/nativeheld/core/freestanding_memory.c": "4ad889f38189e709f5bbd18658804e8f7f06dcc41852a58e302e38909b8689d7",
+    "src/nativeheld/core/irq_guard.S": "2f4152064f7a893fc32a48e99dd052bf148bbf6226d0a925e2cee00e496fe18b",
+    "src/nativeheld/core/physical_binding.h": "bc254989989870c60fa1c8bf0c73830b2d6332d87f6fecf0cb17e158af974ada",
+    "src/nativeheld/core/stock_adapter.h": "541f2346f7de9732cfae72a12e8ce130423eebe49b20406e2a75260fa224e126",
+    "src/nativeheld/core/stock_reports.h": "4924ccc8dc0e36c8f56074c4dc1528441994481283a4aa77d3277d9db602ce02",
+    "src/nativeheld/core/synthetic_binding.h": "41705eb61faf8b45155bef90c9082091ec1ed3b3dfb6e421fa4f2e8364f922b8",
+    "src/nativeheld/core/via_core.h": "6445dfb1c410d7af40066f0ae5835d54c5c1cf48fa13b491a028f428b23ee678",
+    "src/nativeheld/elf_layout.py": "14ae98c09d25cc79b6508286258f208c90324f9c7b2f216363abd52c46af5e6a",
+    "src/nativeheld/layout.ld": "347ab04198321623fa1a3578170d9e84f9062d8e2849543ec7ae43a3427b6a4a",
+    "src/nativeheld/plan.json": "280a37b6cd06fdf69d3c3ba36f39e73f79aa74ca82be6c7308ad80329a3a5148",
+    "src/nativeheld/toolchain.json": "989f98480560a3597e22587f25b27fa7b014e637862b67ebf120b6d4396c028a",
+    "src/nativeheld/trns.py": "08e565a69d43f542a686377ee45cebfc43859dd5d8fb11c4114f7941df7c858d",
+    "src/build_nativeheld.py": "658d6e58e6c3e7d6d85f21dc15527d5696444da5a64e2178f0965dbd0d0644da"
+  }
+}
