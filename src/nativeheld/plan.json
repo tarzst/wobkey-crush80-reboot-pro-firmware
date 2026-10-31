@@ -73,26 +73,26 @@
       115468
     ]
   ],
-  "allocated_bytes": 7613,
+  "allocated_bytes": 7563,
   "capacity_bytes": 7716,
   "linked_sections": [
     {
       "name": ".text.cdb_hook_reset_common",
       "address": 536923340,
       "size": 18,
-      "sha256": "7f843fa11fc07284c6b19ea70e098bf663b2c85d351d2c9caba476a7e9fe1b62"
+      "sha256": "be83219e1b8e81d1f58fee014329f17dbf36709cdedfbbf8ac94fe19194103fd"
     },
     {
-      "name": ".rodata.callers.0",
-      "address": 536923360,
-      "size": 32,
-      "sha256": "0e83b8ae4e461a314162ff007cca17e23293e43f6ea6c651d03ed254812d765b"
+      "name": ".text.cdb_hook_ready",
+      "address": 536923358,
+      "size": 36,
+      "sha256": "6cf051422042528105b55f7f682f365a93893d9ae21e99cf905edc5e19d1ef21"
     },
     {
-      "name": ".text.cdb_hook_physical",
-      "address": 536923392,
-      "size": 50,
-      "sha256": "b15aa6fac62beb17a94dc804f26f58fd94d389c969cb907f74a845744d0f15d5"
+      "name": ".text.cm_cancel.constprop.0.isra.0",
+      "address": 536923394,
+      "size": 48,
+      "sha256": "a6a27dc921cab848298c7235a0cbf1af65e880e238109537ae077f916334eb4a"
     },
     {
       "name": ".text.irq_guard",
@@ -104,7 +104,7 @@
       "name": ".text.cdb_reset_end",
       "address": 536926804,
       "size": 60,
-      "sha256": "d72f8d983470f71e50bde1e71b79c73050fc0587089de87a1502dc78918a8fd8"
+      "sha256": "2c20a22ee9c60a89db6a7bb04facbe862581be214d060f67475877e663f6f3de"
     },
     {
       "name": ".text.cm_init.part.0.constprop.0.isra.0",
@@ -113,52 +113,64 @@
       "sha256": "c405c00ee2c36b479dc03b70cdece2b5682a1cfe12100f4800937ac527c8e445"
     },
     {
-      "name": ".text.cm_step.constprop.0",
+      "name": ".text.ccd_synthetic.constprop.0",
       "address": 536926988,
-      "size": 988,
-      "sha256": "15af8337628ee19982c6bdf5126731932f91458cff66e0c63ebd3deb0fe96529"
+      "size": 258,
+      "sha256": "525db3b9f5e974d2ad79de361cdfb63590cf5ee07c9713fbe170f375231b1c16"
     },
     {
       "name": ".text.cdb_physical",
-      "address": 536927976,
-      "size": 574,
-      "sha256": "6bb7d57f11cd5c19f545d68b2488acaa845d8a0293cf716ff25d7ebf47d73218"
+      "address": 536927246,
+      "size": 570,
+      "sha256": "8c3fc8753f5285686599e2427dfdae7bec55d96ae0f078411541ecffae637204"
     },
     {
-      "name": ".text.cdb_via_packet",
-      "address": 536928550,
-      "size": 946,
-      "sha256": "d95a4738a1a77d4037ea8744a99b547b2a77afc60b289e950d52f01a2474ef39"
-    },
-    {
-      "name": ".text.update",
-      "address": 536929496,
-      "size": 618,
-      "sha256": "ff097cb4f573cd5839efc73ae7c02ce080ae6731bcafba792f6dabc050e237a8"
-    },
-    {
-      "name": ".text.reset",
-      "address": 536947752,
-      "size": 328,
-      "sha256": "70bc88b6b9ee09a7a2b605d69daee0fbbccab2b99ff404916c0a425cc8559f50"
+      "name": ".text.cdb_ready",
+      "address": 536927816,
+      "size": 102,
+      "sha256": "18cfe7a8fdb52517025a2c6f9f3a59082982fe8a8d1abe1c610d9b933046a1cf"
     },
     {
       "name": ".text.cdb_synthetic",
-      "address": 536948080,
-      "size": 222,
-      "sha256": "03c0233ed1804fa356c4aa81f41c842a022295a77b585447d026cc822eb35eba"
+      "address": 536927918,
+      "size": 218,
+      "sha256": "78e445039f3aacdd7821fa141ee5f2ba4cffa4c09260b4c970b9af1920ead35e"
     },
     {
-      "name": ".text.apply.constprop.0",
-      "address": 536948302,
-      "size": 178,
-      "sha256": "525c05bf159a098f3bc1b50a4bc1d5a0139ebabaa8d2e9c7e1bc6b1578ef991e"
+      "name": ".text.cm_step.constprop.0",
+      "address": 536928136,
+      "size": 988,
+      "sha256": "8191780f87e9e413ed6a812e49c25f08c325fca00bd722049a4ba978a554fb52"
     },
     {
-      "name": ".text.clear",
+      "name": ".text.reset",
+      "address": 536929124,
+      "size": 332,
+      "sha256": "3fbf91b7a3a3fd88276b9b4680e70389eae7ebd5d09ec73f072b936fd906cd95"
+    },
+    {
+      "name": ".text.update",
+      "address": 536929456,
+      "size": 618,
+      "sha256": "a5832c13e2b46da7de3a6c0771fc17786918d5bf1d4dcf04104d7cde8967fbdd"
+    },
+    {
+      "name": ".rodata.actions.0",
+      "address": 536947752,
+      "size": 33,
+      "sha256": "56b8230153ebb3341b6d1f205337e2f8cde0ca19c1b9bbc5dfc40521730dfc60"
+    },
+    {
+      "name": ".text.cdb_macro_chunk",
+      "address": 536947786,
+      "size": 702,
+      "sha256": "069e1a9995b004a4a6d93c357b3f457a0df5ff35bfa505094880dd7f030136cc"
+    },
+    {
+      "name": ".text.cdb_hook_synthetic",
       "address": 536949356,
       "size": 18,
-      "sha256": "4478c1fb05d2e07ea1639beb0dcdd06cc44aefc5d38d283fb285f9cf107b2d33"
+      "sha256": "09bd9e56c95c036301d42b6cfb0f0d653fcab0d0223853ff7f4203db9b683106"
     },
     {
       "name": ".rodata.characters.1",
@@ -182,174 +194,156 @@
       "name": ".text.cdb_hook_via",
       "address": 536950296,
       "size": 10,
-      "sha256": "67dd143e7512eb7e043af3e224bd6e7722de64731a32e6dd9b6a4598b5b0084b"
+      "sha256": "5aa8878737929f89f0fb2bbcdf520aa4290a59d06b2f6ee9e20da5c1cf4aaf6a"
     },
     {
-      "name": ".text.cdb_hook_synthetic",
+      "name": ".text.clear",
       "address": 536950492,
       "size": 18,
-      "sha256": "7a14aa7871c4345ab8bf0f8dd086ab8ee3e09cd34cd5f5379d52d49feb9d72ab"
+      "sha256": "4478c1fb05d2e07ea1639beb0dcdd06cc44aefc5d38d283fb285f9cf107b2d33"
     },
     {
       "name": ".text.ccd_macro_action",
       "address": 536950600,
       "size": 186,
-      "sha256": "297ccbe0752180462a069737cee36bd10ddaeb220a13f59a63671cb50ca68284"
+      "sha256": "5ac9fa635a2b5dfdc8f2cdd80f09cb272a544aae1a21b918684475d1bddecd9f"
     },
     {
-      "name": ".text.cdb_reset_finish",
+      "name": ".text.cdb_macro_empty",
       "address": 536950786,
-      "size": 168,
-      "sha256": "1b46bbbbae1f69c652b2a412f9e23e6c8efa21a7caa0e0d74cda25fc0f8cf2b7"
+      "size": 116,
+      "sha256": "a71c755a0fbb6e37ae41a486c74ad6d77fcbb291eeb0567a7f44605bcf8e1399"
     },
     {
-      "name": ".text.cch_decode",
-      "address": 536950954,
+      "name": ".text.cdb_reset_common",
+      "address": 536950902,
       "size": 144,
-      "sha256": "f2be756b28af04621ce24461fced08d789651a9e6da447b693e572def22d6183"
+      "sha256": "35565d5b11c16a58c04e2873de0d102cea4ba66347f04d39efc0f2f8a39dae5f"
     },
     {
-      "name": ".text.cm_cancel.constprop.0.isra.0",
-      "address": 536951232,
-      "size": 48,
-      "sha256": "a6a27dc921cab848298c7235a0cbf1af65e880e238109537ae077f916334eb4a"
-    },
-    {
-      "name": ".text.cdb_save_callers",
-      "address": 536951280,
-      "size": 32,
-      "sha256": "36e7f5fab81f18d317be562bd5a71c80494f28de967b22c735987caf80017079"
-    },
-    {
-      "name": ".text.valid_writer",
-      "address": 536951312,
-      "size": 32,
-      "sha256": "6b643bbb7b86f1fd33c307c9ffdf8cd6aefad1893edb42ca744418ee0cd5cc9c"
-    },
-    {
-      "name": ".text.cdb_macro_poll",
-      "address": 536952312,
-      "size": 400,
-      "sha256": "fff3ccebfe568194dd2c06cf11ffb00ff920369583e3a62f4ea502c48fa22133"
-    },
-    {
-      "name": ".text.ccd_synthetic.constprop.0",
-      "address": 536952712,
-      "size": 250,
-      "sha256": "42a67fafefc1b3a55b312ce067ea1f34acd46d50ce31deaa3aa71075f8c20614"
-    },
-    {
-      "name": ".text.cdb_macro_chunk",
-      "address": 536952962,
-      "size": 706,
-      "sha256": "828eea9eda5c75ecc7574c81956b12bb10c84be24c68f4244c4be6d49d98020f"
-    },
-    {
-      "name": ".text.keymap_write.part.0",
-      "address": 536953668,
-      "size": 206,
-      "sha256": "ca073800ed8de2d19651ab2113ff64739c73a0e821d822971fe5980243a8455a"
-    },
-    {
-      "name": ".text.cdb_macro_scan",
-      "address": 536953874,
-      "size": 174,
-      "sha256": "248d3f3139e1c6a72fc52b5855048602d0bcb4e63650c9b152a7a9f0c5b70476"
-    },
-    {
-      "name": ".rodata.actions.0",
-      "address": 536984944,
-      "size": 33,
-      "sha256": "56b8230153ebb3341b6d1f205337e2f8cde0ca19c1b9bbc5dfc40521730dfc60"
+      "name": ".text.keyboard",
+      "address": 536951046,
+      "size": 40,
+      "sha256": "fe6f30d54d97f6aaaa9e8adad1f180e363c4e966632557402cbacc77615770c5"
     },
     {
       "name": ".text.cdb_reset_begin",
-      "address": 536984978,
+      "address": 536951232,
       "size": 54,
       "sha256": "d271d9f790adfcd41e353e62c6d3606a55ab8ab2912e97f3fdfd6710a92ee524"
     },
     {
-      "name": ".rodata.cdb_via_packet",
-      "address": 536985192,
-      "size": 84,
-      "sha256": "82233fd1c19131a8ae3e60be4f9bd1791adf5cc6b29644f34a8e2458a9f59594"
+      "name": ".text.emit",
+      "address": 536951286,
+      "size": 56,
+      "sha256": "c193457dd85434558ee3566535c91faaa530be56ee85549fcb76287f9b0c4bb9"
+    },
+    {
+      "name": ".text.cdb_macro_poll",
+      "address": 536952312,
+      "size": 396,
+      "sha256": "8b77991d31626b3d5547b0e5ed5e6a14651cc308c0e16dca8537c21febdb365f"
+    },
+    {
+      "name": ".text.cdb_via_packet",
+      "address": 536952708,
+      "size": 936,
+      "sha256": "d5b1fa9bfa04d4fd868688f404bbf2616168c2eb4bf31e90b2a14816fe16577d"
+    },
+    {
+      "name": ".text.keymap_write",
+      "address": 536953644,
+      "size": 216,
+      "sha256": "74996aa5fb022f61f55d606796c5f5582511697b4b3ae76491d44d5158020e4f"
     },
     {
       "name": ".text.take_macro_request",
-      "address": 536985276,
+      "address": 536953860,
       "size": 184,
-      "sha256": "5cd15e6a99dc5f5a4b094400a51d34e3f23746f4574a0a74ce4f61d451718d0c"
-    },
-    {
-      "name": ".text.cdb_macro_empty",
-      "address": 536985460,
-      "size": 118,
-      "sha256": "544ec4437f87d7a8a575f5afa095d466e6230da655b715db76a9f1cd1572a1e7"
-    },
-    {
-      "name": ".text.keymap_read",
-      "address": 536985578,
-      "size": 110,
-      "sha256": "180fc550cf965a511851de52161044edc82203f76857b71dfcd31042877c4648"
+      "sha256": "7690f84039df63d4fb6b44f229b02c945f1bf9831787d009afeb391403503e05"
     },
     {
       "name": ".rodata.cch_rc2_builtin_dictionary",
-      "address": 536985736,
+      "address": 536984944,
       "size": 36,
       "sha256": "c6929baf02b98381d76017f0cbfc71daddaec4fdd96e376037c8014b6b36cd10"
     },
     {
-      "name": ".text.cdb_hook_ready",
-      "address": 536985772,
-      "size": 34,
-      "sha256": "1ec2d941abdfbf12b805678a49a061d8bb54952ec3368ccc91d0f6602bcb1674"
+      "name": ".text.cdb_hook_physical",
+      "address": 536984980,
+      "size": 50,
+      "sha256": "85a4eab56596171e5caf672d21d9eb0709844810d29947a65cf367640d5ac09e"
     },
     {
-      "name": ".text.cdb_reset_common",
-      "address": 536985806,
-      "size": 150,
-      "sha256": "724b0aa0b0b2f85a0ca4569b4a38a6df70376f2092951031f56f75a7a1670002"
+      "name": ".text.apply.constprop.0",
+      "address": 536985192,
+      "size": 178,
+      "sha256": "fdb9be7a6035b0e2e9e6e835c1fc14eed67f1cd53c262dc2d1caf279375f9a94"
     },
     {
-      "name": ".text.emit",
-      "address": 536985956,
-      "size": 58,
-      "sha256": "bdb666249d02f85414e73b685209837b8f14d72538ffdf6ad1d92a316528fee5"
+      "name": ".text.cch_decode",
+      "address": 536985370,
+      "size": 144,
+      "sha256": "f2be756b28af04621ce24461fced08d789651a9e6da447b693e572def22d6183"
     },
     {
-      "name": ".text.cdb_ready",
+      "name": ".text.cdb_macro_scan",
+      "address": 536985514,
+      "size": 174,
+      "sha256": "128fe7d747f66f9c2be1501230938cd05d7c956abdf3b4f876ca2892a4f04ba2"
+    },
+    {
+      "name": ".text.cdb_reset_finish",
+      "address": 536985736,
+      "size": 168,
+      "sha256": "a162595877c4b3fdb72cf8b68f44140932a5fea069c7c38b60b0b41f276cac12"
+    },
+    {
+      "name": ".text.keymap_read",
+      "address": 536985904,
+      "size": 110,
+      "sha256": "f3612173a12bb5b9182b036d4c22664a839dfde6b51b7107404b5c2c60c9ed26"
+    },
+    {
+      "name": ".rodata.callers.0",
       "address": 536986144,
-      "size": 108,
-      "sha256": "f6da6dec36817418cc20e3c7e1b4b8198beb5c706205cbc92dc014c93819827f"
+      "size": 32,
+      "sha256": "0e83b8ae4e461a314162ff007cca17e23293e43f6ea6c651d03ed254812d765b"
     },
     {
-      "name": ".text.keyboard",
-      "address": 536986252,
-      "size": 40,
-      "sha256": "ad224f19909ac427096068b316948909a49025343d79938cfbc6bdbd8014b954"
+      "name": ".rodata.cdb_via_packet",
+      "address": 536986176,
+      "size": 84,
+      "sha256": "956423439186f4129ab2bb0628869d1310d70491039a3480349b15ee4e24e2ce"
     },
     {
       "name": ".text.cdb_restore_return",
-      "address": 536986292,
+      "address": 536986260,
       "size": 36,
       "sha256": "873a0067205b93b0ced79fdea9cac7721d8197c922525c70fc570fdd60b58589"
+    },
+    {
+      "name": ".text.cdb_save_callers",
+      "address": 536986296,
+      "size": 32,
+      "sha256": "36e7f5fab81f18d317be562bd5a71c80494f28de967b22c735987caf80017079"
     }
   ],
   "base_sha256": "31722203eab882eb436b80c2bf02ee54d32c125b7474700c40a220c2b883918b",
-  "output_sha256": "7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35",
-  "output_crc": "350ad5c5",
+  "output_sha256": "46c51d50748dcef47c0e1bf2b0460bf2441e626ed8f4cf73eec2498ce6c363d0",
+  "output_crc": "239d8875",
   "size": 124436,
   "hooks": [
     {
       "offset": 78440,
-      "target": 536923392,
+      "target": 536984980,
       "link_register": 0,
       "symbol": "cdb_hook_physical",
       "kind": "JAL"
     },
     {
       "offset": 36796,
-      "target": 536950492,
+      "target": 536949356,
       "link_register": 0,
       "symbol": "cdb_hook_synthetic",
       "kind": "JAL"
@@ -370,7 +364,7 @@
     },
     {
       "offset": 110048,
-      "target": 536985772,
+      "target": 536923358,
       "link_register": 0,
       "symbol": "cdb_hook_ready",
       "kind": "JAL"
@@ -384,21 +378,21 @@
     },
     {
       "offset": 60448,
-      "target": 536953874,
+      "target": 536985514,
       "link_register": 1,
       "symbol": "cdb_macro_scan",
       "kind": "JAL"
     },
     {
       "offset": 60860,
-      "target": 536985460,
+      "target": 536950786,
       "link_register": 1,
       "symbol": "cdb_macro_empty",
       "kind": "JAL"
     },
     {
       "offset": 68628,
-      "target": 536984978,
+      "target": 536951232,
       "link_register": 1,
       "symbol": "cdb_reset_begin",
       "kind": "JAL"
@@ -412,7 +406,7 @@
     },
     {
       "offset": 69816,
-      "target": 536984978,
+      "target": 536951232,
       "link_register": 1,
       "symbol": "cdb_reset_begin",
       "kind": "JAL"
@@ -426,7 +420,7 @@
     },
     {
       "offset": 76084,
-      "target": 536984978,
+      "target": 536951232,
       "link_register": 1,
       "symbol": "cdb_reset_begin",
       "kind": "JAL"
@@ -440,7 +434,7 @@
     },
     {
       "offset": 112424,
-      "target": 536984978,
+      "target": 536951232,
       "link_register": 1,
       "symbol": "cdb_reset_begin",
       "kind": "JAL"
@@ -454,7 +448,7 @@
     },
     {
       "offset": 109260,
-      "target": 536984978,
+      "target": 536951232,
       "link_register": 1,
       "symbol": "cdb_reset_begin",
       "kind": "JAL"

@@ -37,43 +37,51 @@ code generation. The builder rejects any section or final SHA that differs
 from the tested image.
 
 ```bash
-python3 src/build_nativeheld.py
-# Or select an existing toolchain explicitly:
+# Verify the published hardware-tested release (350ad5c5) from its reference ELF:
+python3 src/build_nativeheld.py --verify
+
+# Build the current refactored source tree against src/nativeheld/plan.json:
 python3 src/build_nativeheld.py --cc /path/to/riscv64-unknown-elf-gcc
-cmp build/Crush80-RGB-0108-NativeHeld-20261021.bin \
-    firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin
+
+# Re-pack sections and refresh layout.ld / plan.json after C/ASM changes:
+python3 src/build_nativeheld.py --cc /path/to/riscv64-unknown-elf-gcc --repack
 ```
 
 The builder derives the pinned transparent-layer base from RC2, compiles the
 published modules into the fixed placement in `src/nativeheld/layout.ld`, and
 applies the 18 entry/reset hooks. It checks every compiled section against
-`plan.json`, preserves application startup and initializer sources, and requires
-the original image length and tested CRC/SHA. It never opens a keyboard.
+`plan.json`, audits `gp` register usage and symbol resolution, preserves
+application startup and initializer sources, and requires the original image
+length and tested CRC/SHA. It never opens a keyboard.
 
 `firmware/nativeheld/NativeHeld-20261021.elf` contains the reference placed
-payload for inspection. The fixed linker script is the verified release
-placement; the development-time section search is not needed to reproduce it.
+payload for the hardware-tested `2026-10-21` release (`350ad5c5`). Subsequent
+source refactoring in `src/nativeheld/` (shared `core/oem_b91.h` memory map,
+dirty-layer tracking in `via_commands.c:keymap_write` to avoid redundant flash
+writes, and `valid_writer` inlining) reduces the placed payload from
+`7613 / 7716` to `7563 / 7716` bytes while keeping the published release image
+and flasher allowlist intact.
 The original vendor firmware remains proprietary; this is a binary patch with
 source for the replacement components, not the manufacturer's firmware source.
 
 ## Validation
 
 On the tested keyboard, the user confirmed native held combinations on Mac
-over USB, working Fn layers, macro availability/playback in VIA and BLE typing.
+over USB and BLE, working Fn layers, cold startup, sleep/wake, and macro
+availability/playback in VIA.
 Read-back after reconnect confirmed the native layout, macro buffer and RGB
 settings persisted. RGB effect 5 matched after USB → BLE → USB.
 
-The development checks included execution of actual RV32/Andes instructions,
-source ownership/release ordering, VIA differential checks, macro streaming,
-reset/reentry, image bounds and cold-start/sleep modeling. These models stub
-flash, time, endpoints or radio operations as appropriate. They do not prove
-hardware timing, every computed callback or all nested interrupt paths.
+The development and public checks (`tests/rc2emu/`, `tests/test_nativeheld.py`,
+`tests/nativeheld_check.c`) execute actual RV32IMC/XAndes instructions across
+cold start (`PC = 0` to `MAIN_LOOP`), source ownership/release ordering, VIA
+keymap/macro commands, dirty-layer flash persistence, macro streaming with
+re-entrancy guards, atomic reset scopes, ELF `gp` auditing, and malformed ELF
+rejection. These models stub flash, time, endpoints or radio operations as
+appropriate. They do not prove hardware timing, every computed callback or all
+nested interrupt paths.
 
-The public tests verify exact artifacts and reconstruction, malformed ELF
-rejection, flasher policy, and native C ownership/macro scenarios. They do not
-silently claim the entire private development harness is bundled here.
-
-Not confirmed on hardware: native combinations over BLE or 2.4 GHz, every
+Not confirmed on hardware: native combinations over 2.4 GHz, every
 overflow/reconnect/sleep case, and the byte-511 fix using a fresh `0xFF` tail.
 The latter is covered offline; the hardware backup already contained `0x00`.
 

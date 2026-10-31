@@ -1,4 +1,4 @@
-/* Binding prototype: these sections are not placed in a keyboard image.
+/* Target hook trampolines placed in the Crush 80 RGB NativeHeld image.
  * Mid-function entries preserve all caller-saved integer registers. C follows
  * the RV32 integer ABI and preserves s0..s11, gp and tp. No floating ISA used.
  */

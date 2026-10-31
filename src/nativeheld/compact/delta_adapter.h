@@ -2,7 +2,7 @@
 #define CRUSH80_DELTA_ADAPTER_H
 
 #include "compact_holds.h"
-#include "../core/synthetic_binding.h"
+#include "../core/via_core.h"
 
 typedef void (*ccd_emit)(void *context, uint8_t modifiers, uint8_t usage, uint8_t down);
 typedef struct {

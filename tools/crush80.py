@@ -34,13 +34,16 @@ UNSAFE_IMAGES = {
 APPROVED_FLASH_IMAGES = {
     'b1dcb56d42c0a2fad1006d572392630a5d4c15f92b63f1701784f732426886da':
         {'name': 'official WOBLAB RGB 20260618', 'crc': 0xCA2D85DC,
-         'from_crcs': (0xCA2D85DC, 0xFE1AA4C2, 0x350AD5C5)},
+         'from_crcs': (0xCA2D85DC, 0xFE1AA4C2, 0x350AD5C5, 0x239D8875)},
     '7663f2fc7357ce3f4ae7f1331577c8e0f2a1bd0f7b1c038a89a6efab31ce7d88':
         {'name': '20260618 Mac-layers RC2', 'crc': 0xFE1AA4C2,
-         'from_crcs': (0xCA2D85DC, 0xFE1AA4C2, 0x350AD5C5)},
+         'from_crcs': (0xCA2D85DC, 0xFE1AA4C2, 0x350AD5C5, 0x239D8875)},
     '7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35':
         {'name': '20261021 NativeHeld preview', 'crc': 0x350AD5C5,
-         'from_crcs': (0xCA2D85DC, 0xFE1AA4C2, 0x54AB7AC3, 0xDCA8651C, 0x350AD5C5)},
+         'from_crcs': (0xCA2D85DC, 0xFE1AA4C2, 0x54AB7AC3, 0xDCA8651C, 0x350AD5C5, 0x239D8875)},
+    '46c51d50748dcef47c0e1bf2b0460bf2441e626ed8f4cf73eec2498ce6c363d0':
+        {'name': '20261031 NativeHeld refactored', 'crc': 0x239D8875,
+         'from_crcs': (0xCA2D85DC, 0xFE1AA4C2, 0x54AB7AC3, 0xDCA8651C, 0x350AD5C5, 0x239D8875)},
 }
 
 def reject_unsafe_image(image):

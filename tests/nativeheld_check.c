@@ -1,7 +1,56 @@
 /* Independent behavioral scenarios; a host process, never a device client. */
 #include <assert.h>
+#include <stdint.h>
 #include <string.h>
 #include "macro_stream.h"
+
+static uint8_t fake_dlm[0x10000];
+static uint8_t fake_flash[0x90000];
+static unsigned flash_programs, flash_erases;
+
+#define OEM_GP_ADDR ((uintptr_t)(fake_dlm + 0x2000))
+
+uint32_t vci_enter(void)
+{
+    return 8u;
+}
+
+void vci_leave(uint32_t saved)
+{
+    (void)saved;
+}
+
+void cdb_flash_read(uint32_t address, uint32_t length, uint8_t *buffer)
+{
+    memcpy(buffer, fake_flash + address, length);
+}
+
+int cdb_flash_program(uint32_t address, uint32_t length, const uint8_t *buffer)
+{
+    ++flash_programs;
+    memcpy(fake_flash + address, buffer, length);
+    return 0;
+}
+
+void cdb_flash_erase(uint32_t address)
+{
+    ++flash_erases;
+    memset(fake_flash + address, 0xff, 4096);
+}
+
+void cdb_rgb_changed(void)
+{
+}
+
+void cdb_macro_chunk(uint8_t packet[32])
+{
+    (void)packet;
+}
+
+const uint8_t cdb_palette[18] = {0};
+const uint8_t cdb_brightness_table[5] = {0};
+
+#include "../src/nativeheld/compact/via_commands.c"
 
 static uint8_t basic[8], bitmap[16];
 
@@ -80,5 +129,49 @@ int main(void)
     memory.engine.binding_active = 1;
     assert(cm_reset(&memory, 0) == VCK_OK && memory.engine.binding_active == 1);
     assert(cm_init(&memory) == VCK_OK && memory.engine.binding_active == 0);
+
+    /* Bulk VIA keymap writes persist only modified layers and skip no-op uploads. */
+    memset(fake_dlm, 0, sizeof(fake_dlm));
+    memset(fake_flash, 0xff, sizeof(fake_flash));
+    flash_programs = 0;
+    flash_erases = 0;
+    for (unsigned offset = 0; offset < 1024; offset += 28) {
+        uint8_t packet[32] = {0};
+        unsigned chunk = 1024 - offset < 28 ? 1024 - offset : 28;
+        packet[0] = 0x13;
+        packet[1] = (uint8_t)(offset >> 8);
+        packet[2] = (uint8_t)offset;
+        packet[3] = (uint8_t)chunk;
+        for (unsigned i = 0; i < chunk; ++i) {
+            packet[4 + i] = (uint8_t)((offset + i) ^ 0x5au);
+        }
+        cdb_via_packet(packet);
+    }
+    unsigned first_upload_programs = flash_programs;
+    assert(first_upload_programs > 0);
+
+    /* Re-uploading the exact same 1024-byte keymap must perform zero flash writes. */
+    flash_programs = 0;
+    flash_erases = 0;
+    for (unsigned offset = 0; offset < 1024; offset += 28) {
+        uint8_t packet[32] = {0};
+        unsigned chunk = 1024 - offset < 28 ? 1024 - offset : 28;
+        packet[0] = 0x13;
+        packet[1] = (uint8_t)(offset >> 8);
+        packet[2] = (uint8_t)offset;
+        packet[3] = (uint8_t)chunk;
+        for (unsigned i = 0; i < chunk; ++i) {
+            packet[4 + i] = (uint8_t)((offset + i) ^ 0x5au);
+        }
+        cdb_via_packet(packet);
+    }
+    assert(flash_programs == 0 && flash_erases == 0);
+
+    /* Modifying a single byte in layer 2 (offset 512..767) persists only layer 2. */
+    {
+        uint8_t packet[32] = {0x13, 0x02, 0x00, 0x02, 0x12, 0x34};
+        cdb_via_packet(packet);
+        assert(flash_programs == 1);
+    }
     return 0;
 }

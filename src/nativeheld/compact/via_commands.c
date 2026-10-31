@@ -1,14 +1,15 @@
-/* Command-only replacement prototype. OEM transport polling and response
+/* VIA raw-HID command dispatcher. OEM transport polling and response
  * remain outside this module. No persistent allocation or direct device I/O.
  */
 #include "firmware_binding.h"
+#include "../core/oem_b91.h"
 
-#define GP UINT32_C(0x80800)
-#define CONFIG ((volatile uint8_t *)(uintptr_t)(GP + 104))
-#define KEYMAP ((volatile uint8_t *)(uintptr_t)(GP - 1536))
-#define SLOT(layer) ((volatile uint16_t *)(uintptr_t)(GP + 380 + 2u * (layer)))
-#define BYTE(offset) (*(volatile uint8_t *)(uintptr_t)(GP + (offset)))
-#define MACRO_SLOT (*(volatile uint16_t *)(uintptr_t)(GP + 396))
+#define GP               OEM_GP_ADDR
+#define CONFIG           OEM_GP_BYTE(OEM_CONFIG_OFFSET)
+#define KEYMAP           OEM_BYTE_AT(GP - (uintptr_t)OEM_KEYMAP_NEG_OFFSET)
+#define SLOT(layer)      OEM_GP_HALF((uintptr_t)OEM_LAYER_SLOT_OFFSET + 2u * (layer))
+#define BYTE(offset)     (*OEM_GP_BYTE(offset))
+#define MACRO_SLOT       (*OEM_GP_HALF(OEM_MACRO_SLOT_OFFSET))
 
 static unsigned be16(const uint8_t *p)
 {
@@ -24,39 +25,46 @@ static void copy(volatile uint8_t *destination, const volatile uint8_t *source, 
 
 static void persist(unsigned layer)
 {
-    uint16_t slot = (uint16_t)(*SLOT(layer) + 256u);
-    uint32_t bank = UINT32_C(0x84000) + layer * 4096u;
+    uint16_t slot = (uint16_t)(*SLOT(layer) + (unsigned)OEM_KEYMAP_LAYER_BYTES);
+    uint32_t bank = (uint32_t)OEM_KEYMAP_FLASH_BASE + layer * (uint32_t)OEM_FLASH_SECTOR_BYTES;
     if (slot > 0xe00u || (slot & 255u) != 0) {
         cdb_flash_erase(bank);
         slot = 0;
     }
-    cdb_flash_program(bank + slot, 256, (const uint8_t *)(uintptr_t)(GP - 1536 + layer * 256));
+    cdb_flash_program(bank + slot, (uint32_t)OEM_KEYMAP_LAYER_BYTES,
+                      (const uint8_t *)(uintptr_t)(GP - (uintptr_t)OEM_KEYMAP_NEG_OFFSET + layer * (uintptr_t)OEM_KEYMAP_LAYER_BYTES));
     *SLOT(layer) = slot;
 }
 
 static void keymap_write(unsigned offset, const uint8_t *data, unsigned size)
 {
-    if (size == 0) {
-        return;
-    }
+    unsigned dirty = 0;
     uint32_t saved = vci_enter();
-    copy(KEYMAP + offset, data, size);
+    for (unsigned i = 0; i < size; ++i) {
+        unsigned index = offset + i;
+        if (KEYMAP[index] != data[i]) {
+            KEYMAP[index] = data[i];
+            dirty |= 1u << (index / OEM_KEYMAP_LAYER_BYTES);
+        }
+    }
     vci_leave(saved);
-    unsigned last = (offset + size - 1u) / 256u;
-    for (unsigned layer = offset / 256u; layer <= last; ++layer) {
-        persist(layer);
+    for (unsigned layer = 0; dirty != 0; ++layer, dirty >>= 1) {
+        if ((dirty & 1u) != 0) {
+            persist(layer);
+        }
     }
 }
 
 static void keymap_read(unsigned offset, uint8_t *data, unsigned size)
 {
     while (size != 0) {
-        unsigned layer = offset / 256u, in_layer = offset % 256u;
-        unsigned take = 256u - in_layer;
+        unsigned layer = offset / OEM_KEYMAP_LAYER_BYTES, in_layer = offset % OEM_KEYMAP_LAYER_BYTES;
+        unsigned take = OEM_KEYMAP_LAYER_BYTES - in_layer;
         if (take > size) {
             take = size;
         }
-        cdb_flash_read(UINT32_C(0x84000) + layer * 4096u + *SLOT(layer) + in_layer, take, data);
+        cdb_flash_read(OEM_KEYMAP_FLASH_BASE + layer * OEM_FLASH_SECTOR_BYTES + *SLOT(layer) + in_layer,
+                       take, data);
         offset += take;
         data += take;
         size -= take;
@@ -133,14 +141,14 @@ void cdb_via_packet(uint8_t packet[32])
     unsigned offset, size;
     switch (packet[0]) {
     case 1:
-        BYTE(812) |= 8;
-        packet[2] = BYTE(135);
+        BYTE(OEM_VIA_FLAGS_OFFSET) |= 8;
+        packet[2] = BYTE(OEM_PROTOCOL_VER_OFFSET);
         break;
     case 2:
-        copy(packet + 2, (const volatile uint8_t *)(uintptr_t)(GP + 964), 30);
-        if ((BYTE(812) & 0x80u) != 0) {
-            BYTE(812) &= 0x7f;
-            BYTE(979) &= 0xfcu;
+        copy(packet + 2, OEM_GP_BYTE(OEM_VIA_STATE_OFFSET), 30);
+        if ((BYTE(OEM_VIA_FLAGS_OFFSET) & 0x80u) != 0) {
+            BYTE(OEM_VIA_FLAGS_OFFSET) &= 0x7f;
+            BYTE(OEM_VIA_PENDING_OFFSET) &= 0xfcu;
         }
         break;
     case 5:
@@ -152,7 +160,7 @@ void cdb_via_packet(uint8_t packet[32])
         break;
     case 20:
     case 21:
-        if (BYTE(135) != 11) {
+        if (BYTE(OEM_PROTOCOL_VER_OFFSET) != 11) {
             break;
         }
         if (packet[1] >= 4 || packet[2] >= 8) {
@@ -171,8 +179,8 @@ void cdb_via_packet(uint8_t packet[32])
         rgb(packet, (uint8_t)(packet[0] == 7));
         break;
     case 9:
-        BYTE(917) = 0;
-        BYTE(814) |= 2;
+        BYTE(OEM_SAVE_COUNTER_OFFSET) = 0;
+        BYTE(OEM_SAVE_FLAGS_OFFSET) |= 2;
         break;
     case 12:
         packet[1] = 16;
@@ -192,7 +200,7 @@ void cdb_via_packet(uint8_t packet[32])
             goto invalid;
         }
         if (size != 0) {
-            cdb_flash_read(UINT32_C(0x89000) + MACRO_SLOT + offset, size, packet + 4);
+            cdb_flash_read(OEM_MACRO_FLASH_BASE + MACRO_SLOT + offset, size, packet + 4);
         }
         break;
     case 15:

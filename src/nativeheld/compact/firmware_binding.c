@@ -1,17 +1,18 @@
 #include "firmware_binding.h"
+#include "../core/oem_b91.h"
 
-#define GP UINT32_C(0x80800)
-#define BYTE_AT(address) ((volatile uint8_t *)(uintptr_t)(address))
-#define HALF_AT(address) ((volatile uint16_t *)(uintptr_t)(address))
-#define BASIC BYTE_AT(GP + 848)
-#define BITMAP BYTE_AT(GP + 4840)
-#define STATUS BYTE_AT(GP + 804)
-#define PRESSED BYTE_AT(GP + 562)
-#define READY BYTE_AT(GP + 929)
-#define MACRO_FLAGS BYTE_AT(GP + 813)
-#define SLOT HALF_AT(GP + 396)
-#define UPLOAD HALF_AT(GP + 390)
-#define STAGING ((uint8_t *)(uintptr_t)(GP + 1508))
+#define GP           OEM_GP_ADDR
+#define BYTE_AT      OEM_BYTE_AT
+#define HALF_AT      OEM_HALF_AT
+#define BASIC        OEM_GP_BYTE(OEM_BASIC_OFFSET)
+#define BITMAP       OEM_GP_BYTE(OEM_BITMAP_OFFSET)
+#define STATUS       OEM_GP_BYTE(OEM_STATUS_OFFSET)
+#define PRESSED      OEM_GP_BYTE(OEM_PRESSED_OFFSET)
+#define READY        OEM_GP_BYTE(OEM_READY_OFFSET)
+#define MACRO_FLAGS  OEM_GP_BYTE(OEM_MACRO_FLAGS_OFFSET)
+#define SLOT         OEM_GP_HALF(OEM_MACRO_SLOT_OFFSET)
+#define UPLOAD       OEM_GP_HALF(OEM_MACRO_UPLOAD_OFFSET)
+#define STAGING      ((uint8_t *)(uintptr_t)(OEM_GP_ADDR + OEM_STAGING_OFFSET))
 
 static int enabled(void)
 {
@@ -29,7 +30,7 @@ static void emit(void *context, uint8_t modifiers, uint8_t usage, uint8_t down)
 
 static ccd_writer writer(void)
 {
-    return (ccd_writer){BASIC, BITMAP, emit, NULL, (uint8_t)(*BYTE_AT(GP + 124) != 0)};
+    return (ccd_writer){BASIC, BITMAP, emit, NULL, (uint8_t)(*OEM_GP_BYTE(OEM_NKRO_OFFSET) != 0)};
 }
 
 static void clear(volatile uint8_t *bytes, unsigned length)
@@ -50,7 +51,7 @@ static void reset(uint8_t matrix)
     clear(BITMAP, 16);
     BITMAP[0] = 1;
     *MACRO_FLAGS &= 0x83u; /* Preserve OEM custom bits0/1 and builtin bit7. */
-    *HALF_AT(GP + 394) = 0;
+    *OEM_GP_HALF(OEM_MACRO_TIMER_OFFSET) = 0;
 }
 
 int cdb_physical(cdb_frame *frame, uint32_t position)
@@ -100,7 +101,7 @@ void cdb_synthetic(cdb_frame *frame)
     static const uint16_t callers[] = {0x2bb4, 0x2bd8, 0x2bec, 0x2bfc, 0x2fcc, 0x2fe8,
         0x3950, 0x3960, 0x3974, 0x3984, 0x3998, 0x39ac, 0x39bc, 0x34a8, 0x3668, 0x36d0};
     uint32_t saved = vci_enter();
-    uint8_t position = *BYTE_AT(GP + 560), down = *PRESSED;
+    uint8_t position = *OEM_GP_BYTE(OEM_POSITION_OFFSET), down = *PRESSED;
     if (enabled() && position < CCH_POSITIONS && (down == 0 || down == 0xff) &&
         frame->a[0] <= 255 && frame->a[1] <= 255 && (frame->ra >> 16) == 0x2001) {
         for (unsigned i = 0; i < sizeof(callers) / sizeof(callers[0]); ++i) {
@@ -118,7 +119,7 @@ void cdb_synthetic(cdb_frame *frame)
 
 void cdb_ready(cdb_frame *frame)
 {
-    if (frame->a[0] == GP + 929 && frame->a[3] == 8) {
+    if (frame->a[0] == GP + OEM_READY_OFFSET && frame->a[3] == 8) {
         uint32_t saved = vci_enter();
         (void)cm_init(&cdb_workspace);
         clear(BASIC, 8);
@@ -133,15 +134,15 @@ void cdb_reset_common(cdb_frame *frame)
 {
     uint32_t saved = vci_enter();
     reset(0);
-    clear(BYTE_AT(GP + 792), 3);
-    clear(BYTE_AT(GP + 912), 3);
-    clear(BYTE_AT(GP + 860), 8);
+    clear(OEM_GP_BYTE(OEM_CONSUMER_OFFSET), 3);
+    clear(OEM_GP_BYTE(OEM_SYSTEM_OFFSET), 3);
+    clear(OEM_GP_BYTE(OEM_MOUSE_OFFSET), 8);
     *STATUS |= 0x1e;
-    *BYTE_AT(GP + 805) |= 0x40;
+    *OEM_GP_BYTE(OEM_STATUS2_OFFSET) |= 0x40;
     /* Exact register results of the replaced OEM common reset. */
-    frame->a[0] = frame->a[1] = GP + 868;
+    frame->a[0] = frame->a[1] = GP + OEM_MOUSE_TAIL_OFFSET;
     frame->a[3] = (uint32_t)(int32_t)(int8_t)*STATUS;
-    frame->a[4] = (uint32_t)(int32_t)(int8_t)*BYTE_AT(GP + 805);
+    frame->a[4] = (uint32_t)(int32_t)(int8_t)*OEM_GP_BYTE(OEM_STATUS2_OFFSET);
     vci_leave(saved);
 }
 
@@ -165,7 +166,7 @@ void cdb_reset_finish(cdb_frame *frame, uint32_t s1, uint32_t s0)
 static void take_macro_request(void)
 {
     if ((*MACRO_FLAGS & 4u) != 0) {
-        uint8_t id = *BYTE_AT(GP + 392);
+        uint8_t id = *OEM_GP_BYTE(OEM_MACRO_ID_OFFSET);
         *MACRO_FLAGS &= (uint8_t)~4u;
         if ((*UPLOAD & 0x8000u) == 0) {
             (void)cm_start(&cdb_workspace, id, *SLOT);
@@ -182,16 +183,16 @@ void cdb_macro_poll(void)
     }
     /* Keep this invocation's ownership across the unguarded flash read.
      * Runtime reset preserves it; a nested poll must not start another fill.
-     * Cold cm_init is quiescent and clears the field before READY becomes8. */
+     * Cold cm_init is quiescent and clears the field before READY becomes 8. */
     cdb_workspace.engine.binding_active = 1;
     take_macro_request();
     ccd_writer output = writer();
-    uint32_t now = *(const volatile uint32_t *)(uintptr_t)UINT32_C(0x80140200);
+    uint32_t now = *OEM_WORD_AT(OEM_TIMER_TICK_REG);
     int step = cm_step(&cdb_workspace, &output, now);
     cm_read request;
     if (step == CM_STEP_READ && cm_prepare_read(&cdb_workspace, &request) == VCK_OK) {
         vci_leave(saved);
-        cdb_flash_read(UINT32_C(0x89000) + request.slot + request.offset,
+        cdb_flash_read(OEM_MACRO_FLASH_BASE + request.slot + request.offset,
                         CM_CACHE_BYTES, cdb_workspace.cache);
         saved = vci_enter();
         /* A key IRQ can request a replacement during the unguarded fill.
@@ -199,8 +200,7 @@ void cdb_macro_poll(void)
         take_macro_request();
         if (cm_finish_read(&cdb_workspace, &request, 1) == VCK_OK && enabled()) {
             output = writer();
-            (void)cm_step(&cdb_workspace, &output,
-                          *(const volatile uint32_t *)(uintptr_t)UINT32_C(0x80140200));
+            (void)cm_step(&cdb_workspace, &output, *OEM_WORD_AT(OEM_TIMER_TICK_REG));
         }
     }
     if (cdb_workspace.engine.phase == CM_IDLE) {
@@ -215,7 +215,7 @@ void cdb_macro_poll(void)
 int32_t cdb_macro_scan(uint32_t address, uint8_t *unused, uint32_t length)
 {
     (void)unused;
-    if (address != 0x89000 || length != CM_BANK_BYTES) {
+    if (address != OEM_MACRO_FLASH_BASE || length != CM_BANK_BYTES) {
         return -512;
     }
     /* This is the settings-reload bank scan, not a VIA GET_BUFFER read.
@@ -241,7 +241,7 @@ int32_t cdb_macro_scan(uint32_t address, uint8_t *unused, uint32_t length)
 int cdb_macro_empty(uint32_t address, uint32_t length, const uint8_t *unused)
 {
     (void)unused;
-    if (address != 0x89000 || length != CM_BANK_BYTES) {
+    if (address != OEM_MACRO_FLASH_BASE || length != CM_BANK_BYTES) {
         return -1;
     }
     uint8_t zeros[CM_CACHE_BYTES];
@@ -264,7 +264,7 @@ static int erased_slot(uint16_t slot)
      * not just its unpublished header, before reusing it. */
     uint8_t bytes[CM_CACHE_BYTES];
     for (unsigned offset = 0; offset < CM_BANK_BYTES; offset += CM_CACHE_BYTES) {
-        cdb_flash_read(UINT32_C(0x89000) + slot + offset, CM_CACHE_BYTES, bytes);
+        cdb_flash_read(OEM_MACRO_FLASH_BASE + slot + offset, CM_CACHE_BYTES, bytes);
         for (unsigned i = 0; i < CM_CACHE_BYTES; ++i) {
             if (bytes[i] != 255) {
                 return 0;
@@ -332,11 +332,11 @@ __attribute__((noinline)) void cdb_macro_chunk(uint8_t packet[32])
             next = (uint16_t)(next + CM_BANK_BYTES);
         }
         if (next > 0xc00) {
-            cdb_flash_erase(0x89000);
+            cdb_flash_erase(OEM_MACRO_FLASH_BASE);
             next = 0;
         }
-        (void)cdb_flash_program(UINT32_C(0x89000) + next + 4, CM_BANK_BYTES - 4, STAGING + 4);
-        (void)cdb_flash_program(UINT32_C(0x89000) + next, 4, STAGING);
+        (void)cdb_flash_program(OEM_MACRO_FLASH_BASE + next + 4, CM_BANK_BYTES - 4, STAGING + 4);
+        (void)cdb_flash_program(OEM_MACRO_FLASH_BASE + next, 4, STAGING);
         *SLOT = next;
         *UPLOAD = 0;
         return;
@@ -344,7 +344,7 @@ __attribute__((noinline)) void cdb_macro_chunk(uint8_t packet[32])
     if ((*UPLOAD & 0x8000u) == 0) {
         uint16_t slot = *SLOT;
         if (slot <= 0xc00 && (slot & 0x1ffu) == 0) {
-            cdb_flash_read(UINT32_C(0x89000) + slot, CM_BANK_BYTES, STAGING);
+            cdb_flash_read(OEM_MACRO_FLASH_BASE + slot, CM_BANK_BYTES, STAGING);
         } else {
             clear(STAGING, CM_BANK_BYTES);
         }

@@ -1,7 +1,7 @@
 #include "delta_adapter.h"
 #include "rc2_builtin_dictionary.h"
 
-static int valid_writer(const ccd_writer *writer)
+__attribute__((always_inline)) static inline int valid_writer(const ccd_writer *writer)
 {
     return writer != NULL && writer->basic != NULL && writer->bitmap != NULL &&
            writer->emit != NULL && writer->overflow_enabled <= 1;

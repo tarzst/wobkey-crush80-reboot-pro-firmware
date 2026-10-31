@@ -3,8 +3,9 @@
 
 #include "macro_stream.h"
 
-/* A measurement/binding prototype until all replacement ranges and lifecycle
- * tests pass. The linker supplies absolute symbols; no implicit .bss/data. */
+/* Target binding between stock Crush 80 RGB RC2 paths and the compact
+ * 512-byte NativeHeld workspace. The linker supplies absolute symbols;
+ * no implicit .bss or .data sections are emitted. */
 typedef struct {
     uint32_t ra, t0, t1, t2;
     uint32_t a[8];
