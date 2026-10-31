@@ -5,9 +5,11 @@
 Воспроизводимые патчи для **WOBKEY Crush 80 Reboot Pro RGB** на основе
 официальной прошивки WOBLAB от 2026-06-18, USB-версия **0108**.
 
-Текущая версия — [**NativeHeld preview — v1.1.0-nativeheld-preview.1**](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.1).
+Текущая версия — [**NativeHeld preview — v1.1.0-nativeheld-preview.2**](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2).
 Она дополняет исправление macOS-слоёв нативными сочетаниями с удержанием и
-прозрачными клавишами Fn-слоя, заменяет обработку VIA-команд и макросов.
+прозрачными клавишами Fn-слоя, заменяет обработку VIA-команд и макросов,
+исключает лишние перезаписи Flash при загрузке неизменённой раскладки в VIA и
+включает полную проверку в эмуляторе RV32IMC (`rc2emu`).
 
 **Экспериментальная версия, проверенная на одной клавиатуре. Это не полный порт QMK.**
 Перед использованием прочитайте [границы проверки и ограничения](docs/NATIVEHELD.md).
@@ -36,7 +38,7 @@ Ctrl+Up и GUI+Space. MT/LT, One-Shot и произвольные сочетан
 
 | Версия | Возможности |
 |---|---|
-| [NativeHeld preview](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.1) | Текущая экспериментальная сборка: macOS-слои, прозрачные клавиши Fn-слоя, сочетания с удержанием, заменённые обработчики VIA и макросов. |
+| [NativeHeld preview](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2) | Текущая экспериментальная сборка: macOS-слои, прозрачные клавиши Fn-слоя, сочетания с удержанием, заменённые обработчики VIA и макросов без холостых записей во Flash. |
 | [RC2](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.0.0-rc2) | Предыдущее исправление macOS-слоёв и F-ряда. Сохраняет штатный обработчик VIA; нативных `QK_MODS` и `KC_TRNS` нет. |
 
 К релизу NativeHeld приложены прошиваемый `.bin`, эталонный `.elf` с кодом
@@ -53,7 +55,7 @@ Ctrl+Up и GUI+Space. MT/LT, One-Shot и произвольные сочетан
 2. Скачайте и распакуйте архив исходников из релиза NativeHeld либо клонируйте тег:
 
    ```bash
-   git clone --branch v1.1.0-nativeheld-preview.1 --depth 1 \
+   git clone --branch v1.1.0-nativeheld-preview.2 --depth 1 \
      https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware.git
    cd wobkey-crush80-reboot-pro-firmware
    ```
@@ -67,11 +69,11 @@ Ctrl+Up и GUI+Space. MT/LT, One-Shot и произвольные сочетан
    ```bash
    python3 tools/crush80.py info
    python3 tools/crush80.py flash \
-     firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin --yes
+     firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin --yes
    ```
 
 Прошиватор проверяет точный хеш образа и разрешённый исходный CRC, ждёт
-подтверждения OTA и после перезапуска проверяет CRC **350ad5c5** на новом
+подтверждения OTA и после перезапуска проверяет CRC **239d8875** на новом
 соединении. Неизвестные образы и исходные версии отклоняются. Список переходов
 и границы их аппаратной проверки описаны в [политике прошивки](docs/NATIVEHELD.md#flasher-policy).
 После обновления восстановите настройки и проверьте назначения после переподключения.
@@ -80,7 +82,7 @@ Ctrl+Up и GUI+Space. MT/LT, One-Shot и произвольные сочетан
 
 ```bash
 python3 tools/crush80.py dry-run \
-  firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin
+  firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin
 ```
 
 Политика прошиватора допускает откат на официальную 0108 и RC2.
@@ -111,7 +113,8 @@ BLE/2.4 ГГц аппаратно не проверены.
 
 | Образ | SHA-256 | OTA CRC |
 |---|---|---|
-| [NativeHeld preview](firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin) | `7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35` | `350ad5c5` |
+| [NativeHeld preview.2 (2026-10-31)](firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin) | `46c51d50748dcef47c0e1bf2b0460bf2441e626ed8f4cf73eec2498ce6c363d0` | `239d8875` |
+| [NativeHeld preview.1 (2026-10-21)](firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin) | `7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35` | `350ad5c5` |
 | [RC2](firmware/patched/Crush80-RGB-20260618-MacLayers-RC2.bin) | `7663f2fc7357ce3f4ae7f1331577c8e0f2a1bd0f7b1c038a89a6efab31ce7d88` | `fe1aa4c2` |
 | [Официальная 0108](firmware/official/Crush80-RGB-20260618-official.bin) | `b1dcb56d42c0a2fad1006d572392630a5d4c15f92b63f1701784f732426886da` | `ca2d85dc` |
 

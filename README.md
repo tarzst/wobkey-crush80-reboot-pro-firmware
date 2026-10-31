@@ -5,9 +5,11 @@
 Reproducible patches for the **WOBKEY Crush 80 Reboot Pro RGB**, based on
 official WOBLAB firmware dated 2026-06-18 (USB release **0108**).
 
-The current release is [**NativeHeld preview — v1.1.0-nativeheld-preview.1**](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.1).
+The current release is [**NativeHeld preview — v1.1.0-nativeheld-preview.2**](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2).
 It adds native held modifier combinations and transparent Fn-layer keys to the
-macOS layer fixes, with replacement VIA command and macro handling.
+macOS layer fixes, with replacement VIA command and macro handling, dirty-layer
+flash persistence (eliminating redundant flash writes on unchanged VIA layout
+uploads) and consolidated RV32IMC emulation tests.
 
 **Experimental, hardware-tested on one keyboard. This is not a full QMK port.**
 Read the [validation scope and known limitations](docs/NATIVEHELD.md) before use.
@@ -35,7 +37,7 @@ combinations are not implemented.
 
 | Release | Scope |
 |---|---|
-| [NativeHeld preview](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.1) | Current preview: macOS layers, transparent Fn-layer keys, held modifier combinations and replacement VIA/macro handling. |
+| [NativeHeld preview](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2) | Current preview: macOS layers, transparent Fn-layer keys, held modifier combinations and replacement VIA/macro handling with dirty-layer flash persistence. |
 | [RC2](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.0.0-rc2) | Earlier macOS layer/F-row fix. Retains the OEM VIA handler; does not add native `QK_MODS` or `KC_TRNS`. |
 
 The NativeHeld release includes the flashable `.bin`, reference payload `.elf`,
@@ -51,7 +53,7 @@ patch and replacement components, not the manufacturer's full firmware source.
    its tag:
 
    ```bash
-   git clone --branch v1.1.0-nativeheld-preview.1 --depth 1 \
+   git clone --branch v1.1.0-nativeheld-preview.2 --depth 1 \
      https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware.git
    cd wobkey-crush80-reboot-pro-firmware
    ```
@@ -65,11 +67,11 @@ patch and replacement components, not the manufacturer's full firmware source.
    ```bash
    python3 tools/crush80.py info
    python3 tools/crush80.py flash \
-     firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin --yes
+     firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin --yes
    ```
 
 The flasher checks the exact image hash and permitted source CRC, waits for
-OTA success, then verifies CRC **350ad5c5** on a fresh connection. It refuses
+OTA success, then verifies CRC **239d8875** on a fresh connection. It refuses
 unknown target images and unlisted source versions. See the
 [transition policy and hardware-testing limits](docs/NATIVEHELD.md#flasher-policy).
 Restore your settings after the update and check your bindings after reconnecting.
@@ -78,7 +80,7 @@ For an offline packet check that does not open the keyboard:
 
 ```bash
 python3 tools/crush80.py dry-run \
-  firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin
+  firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin
 ```
 
 Official 0108 and RC2 rollback targets are included in the flasher policy.
@@ -109,7 +111,8 @@ Full details: [NativeHeld behavior, build and validation](docs/NATIVEHELD.md).
 
 | Image | SHA-256 | OTA CRC |
 |---|---|---|
-| [NativeHeld preview](firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin) | `7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35` | `350ad5c5` |
+| [NativeHeld preview.2 (2026-10-31)](firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin) | `46c51d50748dcef47c0e1bf2b0460bf2441e626ed8f4cf73eec2498ce6c363d0` | `239d8875` |
+| [NativeHeld preview.1 (2026-10-21)](firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin) | `7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35` | `350ad5c5` |
 | [RC2](firmware/patched/Crush80-RGB-20260618-MacLayers-RC2.bin) | `7663f2fc7357ce3f4ae7f1331577c8e0f2a1bd0f7b1c038a89a6efab31ce7d88` | `fe1aa4c2` |
 | [Official 0108](firmware/official/Crush80-RGB-20260618-official.bin) | `b1dcb56d42c0a2fad1006d572392630a5d4c15f92b63f1701784f732426886da` | `ca2d85dc` |
 

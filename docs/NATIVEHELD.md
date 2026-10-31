@@ -1,14 +1,23 @@
-# NativeHeld preview — 2026-10-21
+# NativeHeld preview — 2026-10-31 (`v1.1.0-nativeheld-preview.2`)
 
-This is the exact application image tested on one WOBKEY Crush 80 Reboot Pro
-RGB, based on official USB release 0108. It adds held `QK_MODS` bindings and
-transparent extra layers to RC2. It is an experimental, hardware-tested
-preview, not a full QMK implementation or a guarantee against bricking.
+This document covers the hardware-tested NativeHeld application images for the
+WOBKEY Crush 80 Reboot Pro RGB, based on official USB release 0108. They add
+held `QK_MODS` bindings and transparent extra layers to RC2. This is an
+experimental, hardware-tested preview, not a full QMK implementation or a
+guarantee against bricking.
 
-- File: `firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin`
-- Size: 124436 bytes
-- SHA-256: `7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35`
-- OTA CRC: `350ad5c5`
+- Current image (`preview.2`, 2026-10-31):
+  - File: `firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin`
+  - Reference ELF: `firmware/nativeheld/NativeHeld-20261031.elf`
+  - Size: 124436 bytes (`7563 / 7716` payload bytes used)
+  - SHA-256: `46c51d50748dcef47c0e1bf2b0460bf2441e626ed8f4cf73eec2498ce6c363d0`
+  - OTA CRC: `239d8875`
+- Initial preview (`preview.1`, 2026-10-21):
+  - File: `firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin`
+  - Reference ELF: `firmware/nativeheld/NativeHeld-20261021.elf`
+  - Size: 124436 bytes (`7613 / 7716` payload bytes used)
+  - SHA-256: `7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35`
+  - OTA CRC: `350ad5c5`
 
 ## Behavior
 
@@ -115,7 +124,7 @@ After saving settings, a deliberate update uses:
 ```bash
 python3 tools/crush80.py info
 python3 tools/crush80.py flash \
-  firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin --yes
+  firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin --yes
 ```
 
 Flashing is optional and carries the limitations above. This repository update
