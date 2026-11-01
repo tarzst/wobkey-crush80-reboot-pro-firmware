@@ -14,10 +14,12 @@ enum {
     CTH_IDLE = 0,
     CTH_PENDING_MT = 1,
     CTH_PENDING_LT = 2,
+    CTH_TAPPED = 3,
     CL_FLAG_DF_MASK = 0x03u,
     CL_FLAG_DF_OVERRIDE = 0x04u,
     CL_FLAG_LAST_MAC = 0x08u,
     CL_FLAG_MOMENTARY_USED = 0x10u,
+    CL_FLAG_CAPS_WORD = 0x20u,
     CL_EVENT_HANDLED = 0,
     CL_EVENT_PULSE = 1,
     CL_EVENT_STOCK = 2
@@ -30,16 +32,18 @@ typedef struct {
     uint8_t flags;
     uint8_t tri_count;
     uint8_t pending_state;
+    uint8_t buffered_pos1;
     uint8_t pending_pos;
     uint8_t pending_arg;
     uint8_t pending_tap_kc;
-    uint16_t pending_deadline;
     uint8_t oneshot_mod;
+    uint16_t pending_deadline;
+    uint16_t buffered_code;
     uint8_t osm_pos;
     uint8_t osm_mod;
     uint8_t lm_pos;
     uint8_t lm_layer;
-    uint8_t reserved[13];
+    uint8_t reserved[10];
 } cl_state;
 
 typedef struct {

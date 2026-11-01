@@ -38,6 +38,13 @@ static const ccd_writer cdb_writer = {
 
 #define clear(bytes, length) cdb_memzero((bytes), (length))
 
+static void clear_reports(void)
+{
+    clear(BASIC, 8);
+    clear(BITMAP, 16);
+    BITMAP[0] = 1;
+}
+
 static void reset(uint8_t matrix)
 {
     if (*READY <= 7) {
@@ -45,9 +52,7 @@ static void reset(uint8_t matrix)
     } else {
         (void)cm_reset(&cdb_workspace, (uint8_t)!matrix);
     }
-    clear(BASIC, 8);
-    clear(BITMAP, 16);
-    BITMAP[0] = 1;
+    clear_reports();
     *MACRO_FLAGS &= 0x83u; /* Preserve OEM custom bits0/1 and builtin bit7. */
     *OEM_GP_HALF(OEM_MACRO_TIMER_OFFSET) = 0;
 }
@@ -64,37 +69,56 @@ __attribute__((always_inline)) static inline uint8_t effective_base_layer(void)
         : (cur_mac ? 2u : 0u);
 }
 
-static void check_pending(uint32_t now, uint8_t force)
+__attribute__((noinline)) static uint16_t apply_tap_mods(uint16_t code)
+{
+    cl_state *layers = &cdb_workspace.layers;
+    if ((layers->flags & CL_FLAG_CAPS_WORD) != 0) {
+        if (((BASIC[0] | layers->oneshot_mod) & 0xDDu) == 0u &&
+            ((uint16_t)(code - 4u) < 36u || code == 0x2Du)) {
+            if (code <= 0x1Du || code == 0x2Du) {
+                code |= 0x0200u;
+            }
+        } else if (code != 0x2Au && code != 0x4Cu && (uint16_t)(code - 0xE0u) >= 8u) {
+            layers->flags &= (uint8_t)~CL_FLAG_CAPS_WORD;
+        }
+    }
+    if (layers->oneshot_mod != 0 && code <= 0x1FFFu && (uint8_t)(code - 4u) < 0x8Eu) {
+        code = (uint16_t)(code | ((uint16_t)layers->oneshot_mod << 8));
+        layers->oneshot_mod = 0u;
+    }
+    return code;
+}
+
+__attribute__((noinline)) static uint16_t cdb_key(uint16_t position, uint8_t down, uint16_t code)
+{
+    cch_event ev;
+    if (ccd_physical(&cdb_workspace.owners, &cdb_writer, position, down, code, &ev) == VCK_OK &&
+        ev.route == CCH_STOCK && ev.code > 3u) {
+        return ev.code;
+    }
+    return 0u;
+}
+
+__attribute__((noinline)) static void check_pending(uint32_t now, uint8_t force)
 {
     cl_state *layers = &cdb_workspace.layers;
     uint8_t st = layers->pending_state;
     if (st != CTH_IDLE &&
         (force || (int16_t)((uint16_t)(now >> 8) - layers->pending_deadline) >= 0)) {
-        uint8_t arg = layers->pending_arg;
-        cch_event ev;
         layers->pending_state = CTH_IDLE;
-        uint16_t code = (st == CTH_PENDING_MT) ? (uint16_t)((uint16_t)arg << 8) : (uint16_t)(0x5220u | arg);
-        if (st == CTH_PENDING_LT) {
-            layers->hold_count[arg]++;
+        if (st != CTH_TAPPED) {
+            uint8_t arg = layers->pending_arg;
+            uint16_t code = (st == CTH_PENDING_MT) ? (uint16_t)((uint16_t)arg << 8) : (uint16_t)(0x5220u | arg);
+            if (st == CTH_PENDING_LT) {
+                layers->hold_count[arg]++;
+            }
+            (void)cdb_key(layers->pending_pos, 1, code);
         }
-        (void)ccd_physical(&cdb_workspace.owners, &cdb_writer, layers->pending_pos, 1, code, &ev);
-    }
-}
-
-static void pulse_key(uint16_t position, uint16_t code, uint32_t saved)
-{
-    cch_event ev;
-    vck_result result = ccd_physical(&cdb_workspace.owners, &cdb_writer, position, 1, code, &ev);
-    vci_leave(saved);
-    if (result == VCK_OK && ev.route == CCH_KEYBOARD) {
-        cdb_oem_send();
-        saved = vci_enter();
-        if (enabled()) {
-            (void)ccd_physical(&cdb_workspace.owners, &cdb_writer, position, 0, 0, &ev);
+        if (layers->buffered_pos1 != 0) {
+            (void)cdb_key((uint16_t)(layers->buffered_pos1 - 1u), 1,
+                          apply_tap_mods(layers->buffered_code));
+            layers->buffered_pos1 = 0u;
         }
-        *PRESSED = 0;
-        vci_leave(saved);
-        cdb_oem_send();
     }
 }
 
@@ -103,31 +127,34 @@ int cdb_physical(cdb_frame *frame, uint32_t position)
     uint32_t saved = vci_enter();
     uint8_t raw_down = *PRESSED;
     if (!enabled() || position >= CCH_POSITIONS || (raw_down != 0 && raw_down != 0xff)) {
-        vci_leave(saved);
-        return 0;
+        goto done;
     }
     uint8_t down = (uint8_t)(raw_down != 0);
     if (down && (cdb_workspace.owners.active[position / 8u] & (uint8_t)(1u << (position % 8u))) != 0) {
-        vci_leave(saved);
-        return 0;
+        goto done;
     }
     uint32_t now = *OEM_WORD_AT(OEM_TIMER_TICK_REG);
     cl_state *layers = &cdb_workspace.layers;
-    check_pending(now, down);
+    check_pending(now, (uint8_t)(down && (layers->pending_state == CTH_PENDING_LT || layers->buffered_pos1 != 0)));
     uint8_t base = effective_base_layer();
 
     uint16_t code = 0;
     if (!down) {
-        if (layers->pending_state != CTH_IDLE && layers->pending_pos == (uint8_t)position) {
-            uint16_t tap_kc = (uint16_t)(layers->pending_tap_kc | ((uint16_t)layers->oneshot_mod << 8));
-            layers->oneshot_mod = 0u;
-            layers->pending_state = CTH_IDLE;
-            if ((uint8_t)tap_kc != 0) {
-                pulse_key((uint16_t)position, tap_kc, saved);
-                return 0;
+        if (layers->pending_state != CTH_IDLE && layers->pending_state != CTH_TAPPED) {
+            if (layers->pending_pos == (uint8_t)position) {
+                code = layers->pending_tap_kc;
+                layers->pending_state = CTH_TAPPED;
+                layers->pending_deadline = (uint16_t)((uint16_t)(now >> 8) + CTH_TAPPING_TERM_TICKS);
+                goto tap_pulse;
             }
-            vci_leave(saved);
-            return 0;
+            if (layers->buffered_pos1 == (uint8_t)(position + 1u)) {
+                code = layers->buffered_code;
+                layers->buffered_pos1 = 0u;
+                check_pending(now, 1u);
+tap_pulse:
+                code = apply_tap_mods(code);
+                goto do_pulse;
+            }
         }
         if (layers->lm_layer != 0 && layers->lm_pos == (uint8_t)position) {
             uint8_t l = (uint8_t)(layers->lm_layer - 1u);
@@ -183,41 +210,60 @@ int cdb_physical(cdb_frame *frame, uint32_t position)
             layers->lm_layer = (uint8_t)(l + 1u);
             code = (uint16_t)((uint16_t)(lo & 0x1Fu) << 8);
             hi = 0x52u;
-        } else if (code == 0x7C16u || code == 0x5C16u) {
-            code = (((BASIC[0] & 0xAAu) | (layers->oneshot_mod & 0x0Au)) != 0u) ? 0x35u : 0x29u;
-            hi = 0u;
+        } else if (code == 0x7C73u) {
+            layers->flags ^= CL_FLAG_CAPS_WORD;
+            goto done;
         }
         if (hi != 0x52u) {
             layers->oneshot_mask = 0u;
             layers->flags |= CL_FLAG_MOMENTARY_USED;
+            if (layers->pending_state == CTH_PENDING_MT &&
+                code <= 0x1FFFu && (uint8_t)(lo - 4u) < 0x8Eu) {
+                layers->buffered_pos1 = (uint8_t)(position + 1u);
+                layers->buffered_code = code;
+                goto done;
+            }
+            uint8_t quick_tap = (uint8_t)(layers->pending_state == CTH_TAPPED &&
+                                          layers->pending_pos == (uint8_t)position);
+            check_pending(now, 1u);
+            if (code == 0x7C16u || code == 0x5C16u) {
+                code = (((BASIC[0] & 0xAAu) | (layers->oneshot_mod & 0x0Au)) != 0u) ? 0x35u : 0x29u;
+            }
             if (code >= 0x2000u && code <= 0x4FFFu) {
                 if (code < 0x4400u) {
-                    uint8_t is_lt = (code >= 0x4000u);
-                    uint8_t arg = (uint8_t)(hi & (is_lt ? 3u : 0x1Fu));
-                    layers->pending_state = is_lt ? CTH_PENDING_LT : CTH_PENDING_MT;
-                    layers->pending_pos = (uint8_t)position;
-                    layers->pending_arg = (!is_lt && (arg & 0x0Fu) == 0) ? 1u : arg;
-                    layers->pending_tap_kc = lo;
-                    layers->pending_deadline = (uint16_t)((uint16_t)(now >> 8) + CTH_TAPPING_TERM_TICKS);
+                    if (quick_tap) {
+                        code = apply_tap_mods(lo);
+                    } else {
+                        uint8_t is_lt = (code >= 0x4000u);
+                        uint8_t arg = (uint8_t)(hi & (is_lt ? 3u : 0x1Fu));
+                        layers->pending_state = is_lt ? CTH_PENDING_LT : CTH_PENDING_MT;
+                        layers->pending_pos = (uint8_t)position;
+                        layers->pending_arg = (!is_lt && (arg & 0x0Fu) == 0) ? 1u : arg;
+                        layers->pending_tap_kc = lo;
+                        layers->pending_deadline = (uint16_t)((uint16_t)(now >> 8) + CTH_TAPPING_TERM_TICKS);
+                        goto done;
+                    }
+                } else {
+                    goto done;
                 }
-                vci_leave(saved);
-                return 0;
-            }
-            if (layers->oneshot_mod != 0 && code <= 0x1FFFu) {
-                code = (uint16_t)(code | ((uint16_t)layers->oneshot_mod << 8));
-                layers->oneshot_mod = 0u;
+            } else {
+                code = apply_tap_mods(code);
             }
         }
     }
 
-    cch_event ev;
-    if (ccd_physical(&cdb_workspace.owners, &cdb_writer, (uint16_t)position, down, code, &ev) != VCK_OK ||
-        ev.route != CCH_STOCK || ev.code <= 3) {
+    uint16_t stock = cdb_key((uint16_t)position, down, code);
+    if (stock == 0u) {
+        if (down && (code == 0xE1u || code == 0xE5u) && BASIC[0] == 0x22u) {
+            layers->flags ^= CL_FLAG_CAPS_WORD;
+        }
+done:
         vci_leave(saved);
         return 0;
     }
-    uint8_t hi = (uint8_t)(ev.code >> 8);
-    uint8_t lo = (uint8_t)ev.code;
+    code = stock;
+    uint8_t hi = (uint8_t)(code >> 8);
+    uint8_t lo = (uint8_t)code;
     if (hi == 0x52u) {
         uint8_t l_arg = (uint8_t)(lo & 0x1Fu);
         uint8_t kind = (uint8_t)(lo & 0xE0u);
@@ -253,19 +299,31 @@ int cdb_physical(cdb_frame *frame, uint32_t position)
                 }
             }
         }
-        vci_leave(saved);
-        return 0;
+        goto done;
     }
-    if (ev.code >= 0x82u && ev.code <= 0x84u) {
-        if (down) {
-            pulse_key((uint16_t)position, (lo == 0x82u) ? 0x39u : (lo == 0x83u) ? 0x53u : 0x47u, saved);
-            return 0;
+    if (code >= 0x82u && code <= 0x84u) {
+        if (!down) {
+            goto done;
         }
+        code = (lo == 0x82u) ? 0x39u : (lo == 0x83u) ? 0x53u : 0x47u;
+do_pulse:
+        (void)cdb_key((uint16_t)position, 1, code);
         vci_leave(saved);
+        cdb_oem_send();
+        saved = vci_enter();
+        if (enabled()) {
+            (void)cdb_key((uint16_t)position, 0, 0);
+            if (layers->buffered_pos1 != 0) {
+                check_pending(0u, 1u);
+            }
+        }
+        *PRESSED = 0;
+        vci_leave(saved);
+        cdb_oem_send();
         return 0;
     }
     frame->a[1] = lo;
-    frame->a[3] = ev.code;
+    frame->a[3] = code;
     vci_leave(saved);
     return 1;
 }
@@ -297,9 +355,7 @@ void cdb_ready(cdb_frame *frame)
     if (frame->a[0] == GP + OEM_READY_OFFSET && frame->a[3] == 8) {
         uint32_t saved = vci_enter();
         (void)cm_init(&cdb_workspace);
-        clear(BASIC, 8);
-        clear(BITMAP, 16);
-        BITMAP[0] = 1;
+        clear_reports();
         *STATUS |= 6;
         vci_leave(saved);
     }
@@ -338,54 +394,45 @@ void cdb_reset_finish(cdb_frame *frame, uint32_t s1, uint32_t s0)
     }
 }
 
-static void take_macro_request(void)
-{
-    *OEM_WORD_AT(OEM_WD_TARGET_REG) = OEM_WD_TARGET_4S;
-    *OEM_BYTE_AT(OEM_WD_CTRL2_REG) = OEM_WD_ENABLE_BIT;
-    *OEM_BYTE_AT(OEM_WD_STATUS_REG) = OEM_WD_CLEAR_MASK;
-    if ((*MACRO_FLAGS & 4u) != 0) {
-        uint8_t id = *OEM_GP_BYTE(OEM_MACRO_ID_OFFSET);
-        *MACRO_FLAGS &= (uint8_t)~4u;
-        if ((*UPLOAD & 0x8000u) == 0) {
-            (void)cm_start(&cdb_workspace, id, *SLOT);
-        }
-    }
-}
-
 void cdb_macro_poll(void)
 {
     uint32_t saved = vci_enter();
-    if (!enabled() || cdb_workspace.engine.binding_active) {
-        vci_leave(saved);
-        return;
-    }
-    /* Keep this invocation's ownership across the unguarded flash read.
-     * Runtime reset preserves it; a nested poll must not start another fill.
-     * Cold cm_init is quiescent and clears the field before READY becomes 8. */
-    cdb_workspace.engine.binding_active = 1;
-    take_macro_request();
-    uint32_t now = *OEM_WORD_AT(OEM_TIMER_TICK_REG);
-    check_pending(now, 0);
-    int step = cm_step(&cdb_workspace, &cdb_writer, now);
-    cm_read request;
-    if (step == CM_STEP_READ && cm_prepare_read(&cdb_workspace, &request) == VCK_OK) {
-        vci_leave(saved);
-        cdb_flash_read(OEM_MACRO_FLASH_BASE + request.slot + request.offset,
-                        CM_CACHE_BYTES, cdb_workspace.cache);
-        saved = vci_enter();
-        /* A key IRQ can request a replacement during the unguarded fill.
-         * Cancel that old generation before considering its completion. */
-        take_macro_request();
-        if (cm_finish_read(&cdb_workspace, &request, 1) == VCK_OK && enabled()) {
-            (void)cm_step(&cdb_workspace, &cdb_writer, *OEM_WORD_AT(OEM_TIMER_TICK_REG));
+    if (enabled() && !cdb_workspace.engine.binding_active) {
+        cdb_workspace.engine.binding_active = 1;
+        *OEM_WORD_AT(OEM_WD_TARGET_REG) = OEM_WD_TARGET_4S;
+        *OEM_BYTE_AT(OEM_WD_CTRL2_REG) = OEM_WD_ENABLE_BIT;
+        *OEM_BYTE_AT(OEM_WD_STATUS_REG) = OEM_WD_CLEAR_MASK;
+        check_pending(*OEM_WORD_AT(OEM_TIMER_TICK_REG), 0);
+        for (int tries = 0;; ++tries) {
+            if ((*MACRO_FLAGS & 4u) != 0) {
+                uint8_t id = *OEM_GP_BYTE(OEM_MACRO_ID_OFFSET);
+                *MACRO_FLAGS &= (uint8_t)~4u;
+                if ((*UPLOAD & 0x8000u) == 0) {
+                    (void)cm_start(&cdb_workspace, id, *SLOT);
+                }
+            }
+            cm_read request;
+            if (!enabled() ||
+                cm_step(&cdb_workspace, &cdb_writer, *OEM_WORD_AT(OEM_TIMER_TICK_REG)) != CM_STEP_READ ||
+                tries != 0 ||
+                cm_prepare_read(&cdb_workspace, &request) != VCK_OK) {
+                break;
+            }
+            vci_leave(saved);
+            cdb_flash_read(OEM_MACRO_FLASH_BASE + request.slot + request.offset,
+                           CM_CACHE_BYTES, cdb_workspace.cache);
+            saved = vci_enter();
+            if (cm_finish_read(&cdb_workspace, &request, 1) != VCK_OK) {
+                break;
+            }
         }
+        if (cdb_workspace.engine.phase == CM_IDLE && cdb_workspace.layers.pending_state == CTH_IDLE) {
+            *MACRO_FLAGS &= (uint8_t)~8u;
+        } else {
+            *MACRO_FLAGS |= 8;
+        }
+        cdb_workspace.engine.binding_active = 0;
     }
-    if (cdb_workspace.engine.phase == CM_IDLE && cdb_workspace.layers.pending_state == CTH_IDLE) {
-        *MACRO_FLAGS &= (uint8_t)~8u;
-    } else {
-        *MACRO_FLAGS |= 8;
-    }
-    cdb_workspace.engine.binding_active = 0;
     vci_leave(saved);
 }
 
@@ -452,8 +499,7 @@ __attribute__((noinline)) void cdb_macro_chunk(uint8_t packet[32])
 {
     unsigned offset = (unsigned)packet[1] * 256 + packet[2], size = packet[3];
     if (size > 28 || offset > CM_BANK_BYTES || size > CM_BANK_BYTES - offset) {
-        packet[0] = 0xff;
-        return;
+        goto fail;
     }
     if (size == 0) {
         return;
@@ -461,16 +507,11 @@ __attribute__((noinline)) void cdb_macro_chunk(uint8_t packet[32])
     uint32_t saved = vci_enter();
     if (!enabled()) {
         vci_leave(saved);
-        packet[0] = 0xff;
-        return;
+        goto fail;
     }
     (void)cm_cancel(&cdb_workspace);
     while (cdb_workspace.engine.phase != CM_IDLE) {
-        if (cm_step(&cdb_workspace, &cdb_writer, 0) == CM_STEP_FAILED) {
-            vci_leave(saved);
-            packet[0] = 0xff;
-            return;
-        }
+        (void)cm_step(&cdb_workspace, &cdb_writer, 0);
     }
     vci_leave(saved);
     if (offset == CM_BANK_BYTES - 1) {
@@ -481,6 +522,7 @@ __attribute__((noinline)) void cdb_macro_chunk(uint8_t packet[32])
         }
         if ((*UPLOAD & 0x8000u) == 0 ||
             (STAGING[0] & STAGING[1] & STAGING[2] & STAGING[3]) == 255) {
+fail:
             packet[0] = 0xff;
             return;
         }

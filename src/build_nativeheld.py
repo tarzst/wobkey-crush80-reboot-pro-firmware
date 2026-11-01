@@ -153,6 +153,11 @@ def subset_pack(items, bounds):
         sorted(range(len(bounds)), key=lambda i: bounds[i][1] - cursors[i]),
         sorted(range(len(bounds)), key=lambda i: -(bounds[i][1] - cursors[i])),
     ]
+    for seed in range(64):
+        rng = random.Random(seed)
+        order = list(range(len(bounds)))
+        rng.shuffle(order)
+        orders.append(order)
     for tie in (-1, 1):
         for order in orders:
             rem = list(remaining)
@@ -164,8 +169,9 @@ def subset_pack(items, bounds):
                     nxt = dict(states)
                     for pos, chosen in states.items():
                         pos2 = align_up(pos, item['align']) + item['size']
-                        if pos2 <= end and (pos2 not in nxt or (tie * len(chosen) < tie * len(nxt[pos2]))):
-                            nxt[pos2] = [*chosen, item]
+                        cand = [*chosen, item]
+                        if pos2 <= end and (pos2 not in nxt or (tie * len(cand) > tie * len(nxt[pos2]))):
+                            nxt[pos2] = cand
                     states = nxt
                 best_pos = max(states, key=lambda p: (p, tie * len(states[p])))
                 chosen = states[best_pos]
@@ -174,6 +180,61 @@ def subset_pack(items, bounds):
                 rem = [x for x in rem if x['section'] not in used]
             if not rem:
                 return [placed[i] for i in range(len(bounds))]
+    big_regs = sorted(
+        [i for i in range(len(bounds)) if bounds[i][1] - cursors[i] > 504],
+        key=lambda i: -(bounds[i][1] - cursors[i]),
+    )
+    if len(big_regs) >= 3:
+        r0, r1, r2 = big_regs[:3]
+        big_items = sorted([x for x in remaining if x['size'] > 504], key=lambda x: -x['size'])
+        small_items = [x for x in remaining if x['size'] <= 504]
+        assigns = [[]]
+        for item in big_items:
+            assigns = [[*a, (r, item)] for a in assigns for r in (r0, r1, r2)]
+        for assign in assigns:
+            cur = list(cursors)
+            placed = {i: list(fixed_placed[i]) for i in range(len(bounds))}
+            ok = True
+            for r, item in assign:
+                pos2 = align_up(cur[r], item['align']) + item['size']
+                if pos2 > bounds[r][1]:
+                    ok = False
+                    break
+                cur[r] = pos2
+                placed[r].append(item)
+            if not ok:
+                continue
+            sub_orders = [
+                sorted(range(len(bounds)), key=lambda i: (bounds[i][1] - cur[i], i)),
+                sorted(range(len(bounds)), key=lambda i: (-(bounds[i][1] - cur[i]), i)),
+            ]
+            for seed in range(16):
+                rng = random.Random(seed)
+                so = list(range(len(bounds)))
+                rng.shuffle(so)
+                sub_orders.append(so)
+            for tie in (1, -1):
+                for sub_order in sub_orders:
+                    rem = list(small_items)
+                    pl = {i: list(placed[i]) for i in range(len(bounds))}
+                    for idx in sub_order:
+                        start, end = cur[idx], bounds[idx][1]
+                        states = {start: []}
+                        for item in sorted(rem, key=lambda x: (-x['align'], -x['size'], x['section'])):
+                            nxt = dict(states)
+                            for pos, chosen in states.items():
+                                pos2 = align_up(pos, item['align']) + item['size']
+                                cand = [*chosen, item]
+                                if pos2 <= end and (pos2 not in nxt or (tie * len(cand) > tie * len(nxt[pos2]))):
+                                    nxt[pos2] = cand
+                            states = nxt
+                        best_pos = max(states, key=lambda p: (p, tie * len(states[p])))
+                        chosen = states[best_pos]
+                        pl[idx].extend(chosen)
+                        used = {x['section'] for x in chosen}
+                        rem = [x for x in rem if x['section'] not in used]
+                    if not rem:
+                        return [pl[i] for i in range(len(bounds))]
     raise ValueError(f'unplaced sections: {[x["section"] for x in rem]}')
 
 
@@ -228,7 +289,7 @@ def repack_payload(cc, build_dir, rc2):
     flat_sizes = {s.name: s.size for s in sections(flat_elf) if s.flags & 2 and s.size}
     for it in items:
         it['size'] = flat_sizes.get(it['section'], it['size'])
-    for _ in range(3):
+    for step in range(4):
         groups = subset_pack(items, bounds)
         probe_file = build_dir / 'probe.ld'
         probe_file.write_text(render_script(groups, bounds, asserts=False))
@@ -237,7 +298,8 @@ def repack_payload(cc, build_dir, rc2):
         if all(actual.get(it['section'], it['size']) <= it['size'] for it in items):
             break
         for it in items:
-            it['size'] = max(it['size'], actual.get(it['section'], it['size']))
+            real_sz = actual.get(it['section'], it['size'])
+            it['size'] = real_sz if step == 0 else max(it['size'], real_sz)
     script_text = render_script(groups, bounds, asserts=True)
     script_file = build_dir / 'repack.ld'
     script_file.write_text(script_text)

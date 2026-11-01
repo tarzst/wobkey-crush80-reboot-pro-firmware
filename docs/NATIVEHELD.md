@@ -1,20 +1,22 @@
-# NativeHeld — 2026-11-01 (`v1.2.0`)
+# NativeHeld — 2026-11-01 (`v1.3.0`)
 
 This document covers the hardware-tested NativeHeld application images for the
 WOBKEY Crush 80 Reboot Pro RGB, based on official USB release 0108. They add
 full QMK/VIA layer operators (`MO`, `TG`, `TO`, `DF`, `OSL`, `TT`, `LM`,
-`FN_MO13`/`FN_MO23` Tri-Layer, multi-layer `KC_TRNS`), Tap-Hold (`MT`/`LT`),
-One-Shot Modifiers (`OSM`), Grave Escape (`KC_GESC`), held `QK_MODS` bindings,
-dirty-layer flash persistence, and Telink B91 hardware watchdog protection to
-RC2. This is an experimental, hardware-tested firmware patch, not a full QMK
-port or a guarantee against bricking.
+`FN_MO13`/`FN_MO23` Tri-Layer, multi-layer `KC_TRNS`), Tap-Hold (`MT`/`LT`) with
+Quick Tap auto-repeat and bidirectional rolling-safe Permissive Hold, Caps Word
+(`Both Shifts` or `0x7C73` `CW_TOGG`), One-Shot Modifiers (`OSM`), Grave Escape
+(`KC_GESC`), held `QK_MODS` bindings, dirty-layer flash persistence, and Telink
+B91 hardware watchdog protection to RC2. This is an experimental,
+hardware-tested firmware patch, not a full QMK port or a guarantee against
+bricking.
 
-- Current release (`v1.2.0`, 2026-11-01):
+- Current release (`v1.3.0`, 2026-11-01):
   - File: `firmware/patched/Crush80-RGB-0108-NativeHeld-20261101.bin`
   - Reference ELF: `firmware/nativeheld/NativeHeld-20261101.elf`
-  - Size: 124436 bytes (`8037 / 8132` payload bytes used)
-  - SHA-256: `68bb25b07e3c047a60e606410723977f9b689d9131393be5d3a8c5a0ed778ca4`
-  - OTA CRC: `13dadb12`
+  - Size: 124436 bytes (`8044 / 8132` payload bytes used)
+  - SHA-256: `3b6c6755b1a3b263d6e55c2a4415d7e91689ac43f897b3be970b236ef970de3a`
+  - OTA CRC: `2f4f4974`
 - Refactored preview (`preview.2`, 2026-10-31):
   - File: `firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin`
   - Reference ELF: `firmware/nativeheld/NativeHeld-20261031.elf`
@@ -37,8 +39,13 @@ port or a guarantee against bricking.
   `TT` (Tap-Toggle Layer), `LM(layer, mod)` (`0x5000..0x507F`), and
   `FN_MO13` / `FN_MO23` Tri-Layer (`0x7700..0x7701`, `0x5F10..0x5F11`).
 - Tap-Hold `MT(mod, kc)` (`0x2000..0x3FFF`) and `LT(layer, kc)` (`0x4000..0x43FF`)
-  use a 200 ms tapping term (`3 200 000` ticks of the 16 MHz timer `0x80140200`)
-  and `HOLD_ON_OTHER_KEY_PRESS`.
+  use a 200 ms tapping term (`3 200 000` ticks of the 16 MHz timer `0x80140200`),
+  **Quick Tap** auto-repeat (`Tap -> Hold` within 200 ms holds `kc`),
+  `HOLD_ON_OTHER_KEY_PRESS` for `LT`, and bidirectional rolling-safe
+  **Permissive Hold** for `MT`.
+- **Caps Word** (`Both Shifts` `KC_LSFT + KC_RSFT` or `0x7C73` `CW_TOGG`)
+  automatically shifts `A..Z` and `-` (`_`), preserves mode on digits `1..0`,
+  `Backspace` and `Delete`, and deactivates on `Space` or other keys.
 - One-Shot Modifiers `OSM(mod)` (`0x52A0..0x52BF`) latch modifiers for the next
   non-modifier key on a quick tap (stacking multiple `OSM` taps), or act as a
   held modifier when held across another key or past 200 ms.

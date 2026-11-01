@@ -49,6 +49,7 @@ vck_result cm_reset(cm_memory *memory, uint8_t preserve_stock)
         (void)cch_reset(&memory->owners, 1);
         reset_engine(&memory->engine, generation);
         memory->layers.pending_state = CTH_IDLE;
+        memory->layers.buffered_pos1 = 0u;
     }
     memory->engine.generation = generation;
     memory->engine.binding_active = binding_active;
@@ -109,36 +110,28 @@ static void wait_for(cm_engine *engine, uint32_t now, uint16_t ms)
 
 static uint16_t ascii_action(uint8_t ascii)
 {
-    if (ascii >= 'a' && ascii <= 'z') {
-        return (uint16_t)(ascii - 'a' + 4);
+    unsigned lower = (unsigned)(ascii | 0x20u) - 'a';
+    if (lower < 26u) {
+        return (uint16_t)((lower + 4u) | ((ascii & 0x20u) ? 0u : 0x0200u));
     }
-    if (ascii >= 'A' && ascii <= 'Z') {
-        return (uint16_t)(0x0200u | (unsigned)(ascii - 'A' + 4));
+    if ((unsigned)(ascii - '1') < 9u) {
+        return (uint16_t)(ascii - '1' + 0x1eu);
     }
-    if (ascii >= '1' && ascii <= '9') {
-        return (uint16_t)(ascii - '1' + 0x1e);
-    }
-    if (ascii == '0') {
-        return 0x27;
-    }
-    if (ascii == 8 || ascii == 9) {
-        return (uint16_t)(ascii + 0x22);
-    }
-    if (ascii == 10 || ascii == 13) {
-        return 0x28;
-    }
-    if (ascii == 27 || ascii == 127) {
-        return (uint16_t)(ascii == 27 ? 0x29 : 0x4c);
-    }
-    /* US HID punctuation, bit7 indicates temporary left Shift. */
-    static const uint8_t characters[] = " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
-    static const uint8_t actions[] = {
+    /* US HID punctuation + control/0, bit7 indicates temporary left Shift. */
+    static const uint8_t characters[40] = {
+        '0', 0x08, 0x09, 0x0a, 0x0d, 0x1b, 0x7f,
+        ' ', '!', '"', '#', '$', '%', '&', '\'',
+        '(', ')', '*', '+', ',', '-', '.', '/',
+        ':', ';', '<', '=', '>', '?', '@', '[',
+        '\\', ']', '^', '_', '`', '{', '|', '}', '~'
+    };
+    static const uint8_t actions[40] = {
+        0x27, 0x2a, 0x2b, 0x28, 0x28, 0x29, 0x4c,
         0x2c, 0x9e, 0xb4, 0xa0, 0xa1, 0xa2, 0xa4, 0x34,
         0xa6, 0xa7, 0xa5, 0xae, 0x36, 0x2d, 0x37, 0x38,
         0xb3, 0x33, 0xb6, 0x2e, 0xb7, 0xb8, 0x9f, 0x2f,
         0x31, 0x30, 0xa3, 0xad, 0x35, 0xaf, 0xb1, 0xb0, 0xb5
     };
-    _Static_assert(sizeof(characters) == sizeof(actions) + 1, "ASCII table mismatch");
     for (unsigned i = 0; i < sizeof(actions); ++i) {
         if (characters[i] == ascii) {
             return (uint16_t)((actions[i] & 0x7fu) | ((actions[i] & 0x80u) ? 0x0200u : 0));
@@ -153,29 +146,6 @@ static __attribute__((noinline)) int macro_emit(cm_memory *memory, const ccd_wri
     if (result != VCK_OK) {
         return fail(memory, result);
     }
-    return CM_STEP_PROGRESS;
-}
-
-static int apply(cm_memory *memory, const ccd_writer *writer, uint32_t now,
-                 uint8_t mod, uint8_t usage, uint8_t opcode)
-{
-    uint16_t release = 0;
-    if (opcode == 1) {
-        release = (uint16_t)((uint16_t)(mod & (uint8_t)~memory->owners.macro[0]) << 8);
-        if (usage != 0) {
-            unsigned bit = 8u + usage - VCK_USAGE_MIN;
-            if ((memory->owners.macro[bit / 8] & (1u << (bit % 8))) == 0) {
-                release = (uint16_t)(release | usage);
-            }
-        }
-    }
-    if (macro_emit(memory, writer, (uint8_t)(opcode != 3), mod, usage) < 0) {
-        return CM_STEP_FAILED;
-    }
-    cm_engine *engine = &memory->engine;
-    engine->tap_release = release;
-    engine->phase = release != 0 ? CM_RELEASE : CM_RUN;
-    wait_for(engine, now, INTERVAL_MS);
     return CM_STEP_PROGRESS;
 }
 
@@ -246,10 +216,35 @@ int cm_step(cm_memory *memory, const ccd_writer *writer, uint32_t now)
             engine->phase = CM_PREFIX;
         } else {
             uint16_t packed = ascii_action(byte);
-            if (packed == 0) {
+            uint8_t mod = (uint8_t)(packed >> 8);
+            uint8_t usage = (uint8_t)packed;
+            uint8_t opcode = 1;
+            if (0) {
+            do_operand:
+                mod = (byte >= 0xe0u && byte <= 0xe7u) ? (uint8_t)(1u << (byte - 0xe0u)) : 0u;
+                usage = (byte >= VCK_USAGE_MIN && byte <= VCK_USAGE_MAX) ? byte : 0u;
+                opcode = engine->opcode;
+            }
+            if ((mod | usage) == 0u) {
                 return fail(memory, VCK_UNSUPPORTED);
             }
-            return apply(memory, writer, now, (uint8_t)(packed >> 8), (uint8_t)packed, 1);
+            uint16_t release = 0;
+            if (opcode == 1) {
+                release = (uint16_t)((uint16_t)(mod & (uint8_t)~memory->owners.macro[0]) << 8);
+                if (usage != 0) {
+                    unsigned bit = 8u + usage - VCK_USAGE_MIN;
+                    if ((memory->owners.macro[bit / 8] & (1u << (bit % 8))) == 0) {
+                        release = (uint16_t)(release | usage);
+                    }
+                }
+            }
+            if (macro_emit(memory, writer, (uint8_t)(opcode != 3), mod, usage) < 0) {
+                return CM_STEP_FAILED;
+            }
+            engine->tap_release = release;
+            engine->phase = release != 0 ? CM_RELEASE : CM_RUN;
+            wait_for(engine, now, INTERVAL_MS);
+            return CM_STEP_PROGRESS;
         }
     } else if (engine->phase == CM_PREFIX) {
         if (byte >= 1 && byte <= 3) {
@@ -263,12 +258,7 @@ int cm_step(cm_memory *memory, const ccd_writer *writer, uint32_t now)
             return fail(memory, VCK_UNSUPPORTED);
         }
     } else if (engine->phase == CM_OPERAND) {
-        uint8_t mod = (byte >= 0xe0u && byte <= 0xe7u) ? (uint8_t)(1u << (byte - 0xe0u)) : 0u;
-        uint8_t usage = (byte >= VCK_USAGE_MIN && byte <= VCK_USAGE_MAX) ? byte : 0u;
-        if ((mod | usage) == 0u) {
-            return fail(memory, VCK_UNSUPPORTED);
-        }
-        return apply(memory, writer, now, mod, usage, engine->opcode);
+        goto do_operand;
     } else {
         if (byte >= '0' && byte <= '9') {
             uint32_t value = (uint32_t)engine->delay_value * 10 + byte - '0';

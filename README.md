@@ -5,13 +5,14 @@
 Reproducible patches for the **WOBKEY Crush 80 Reboot Pro RGB**, based on
 official WOBLAB firmware dated 2026-06-18 (USB release **0108**).
 
-The current release is [**NativeHeld — v1.2.0**](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.2.0).
+The current release is [**NativeHeld — v1.3.0**](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.3.0).
 It adds full QMK/VIA layer operators (`MO`, `TG`, `TO`, `DF`, `OSL`, `TT`,
 `FN_MO13`/`FN_MO23` Tri-Layer, multi-layer `KC_TRNS`), Tap-Hold (`MT(mod, kc)`
-and `LT(layer, kc)`), One-Shot Modifiers (`OSM`), Layer-Mod (`LM`), Grave
-Escape (`KC_GESC`), native held `QK_MODS` combinations, dirty-layer flash
-persistence, and Telink B91 hardware watchdog protection (~4.0 s timeout) on top
-of the macOS layer fixes.
+and `LT(layer, kc)`) with **Quick Tap** auto-repeat and bidirectional rolling-safe
+**Permissive Hold**, **Caps Word** (`Both Shifts` or `0x7C73` `CW_TOGG`), One-Shot
+Modifiers (`OSM`), Layer-Mod (`LM`), Grave Escape (`KC_GESC`), native held
+`QK_MODS` combinations, dirty-layer flash persistence, and Telink B91 hardware
+watchdog protection (~4.0 s timeout) on top of the macOS layer fixes.
 
 **Experimental, hardware-tested on one keyboard. This is not a full QMK port.**
 Read the [validation scope and known limitations](docs/NATIVEHELD.md) before use.
@@ -28,7 +29,13 @@ control the resulting keys:
 - Full QMK/VIA layer operators: `MO`, `TG`, `TO`, `DF`, `OSL` (One-Shot Layer),
   `TT` (Tap-Toggle Layer), `LM(layer, mod)` and `FN_MO13` / `FN_MO23` Tri-Layer.
 - Tap-Hold keys `MT(mod, kc)` (`0x2000..0x3FFF`) and `LT(layer, kc)` (`0x4000..0x43FF`)
-  with a 200 ms tapping term and `HOLD_ON_OTHER_KEY_PRESS`.
+  with a 200 ms tapping term, **Quick Tap** auto-repeat (`Tap -> Hold` within
+  200 ms repeats `kc`), `HOLD_ON_OTHER_KEY_PRESS` for `LT`, and bidirectional
+  rolling-safe **Permissive Hold** for `MT` (nested tap or timeout promotes to
+  modifier; fast overlapping rolls emit both tap keys cleanly).
+- **Caps Word** (`Both Shifts` `KC_LSFT + KC_RSFT` or `0x7C73` `CW_TOGG`):
+  automatically shifts `A..Z` and `-` (`_`), preserves mode on digits `1..0`,
+  `Backspace` and `Delete`, and deactivates on `Space` or other keys.
 - One-Shot Modifiers `OSM(mod)` (`0x52A0..0x52BF`) with multi-modifier stacking
   and hold fallback, plus Grave Escape `KC_GESC` (`0x7C16`: `Esc` normally,
   `~` / `` ` `` with `Shift` / `GUI`).
@@ -49,7 +56,7 @@ Ctrl+Up and GUI+Space, as well as `MT`, `LT`, `OSL` and `OSM` bindings.
 
 | Release | Scope |
 |---|---|
-| [NativeHeld v1.2.0](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.2.0) | Current release: macOS layers, full QMK/VIA layer stack (`MO`/`TG`/`TO`/`DF`/`OSL`/`TT`/`LM`/Tri-Layer/`KC_TRNS`), `MT`/`LT` Tap-Hold, `OSM`, `KC_GESC`, held `QK_MODS`, dirty-layer flash persistence, and hardware watchdog. |
+| [NativeHeld v1.3.0](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.3.0) | Current release: macOS layers, full QMK/VIA layer stack (`MO`/`TG`/`TO`/`DF`/`OSL`/`TT`/`LM`/Tri-Layer/`KC_TRNS`), `MT`/`LT` Tap-Hold with Quick Tap and rolling-safe Permissive Hold, Caps Word (`Both Shifts`/`CW_TOGG`), `OSM`, `KC_GESC`, held `QK_MODS`, dirty-layer flash persistence, and hardware watchdog. |
 | [NativeHeld preview](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2) | Earlier preview: macOS layers, transparent Fn-layer keys, held `QK_MODS` and replacement VIA/macro handling. |
 | [RC2](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.0.0-rc2) | Earlier macOS layer/F-row fix. Retains the OEM VIA handler; does not add native `QK_MODS` or `KC_TRNS`. |
 
@@ -66,7 +73,7 @@ patch and replacement components, not the manufacturer's full firmware source.
    its tag:
 
    ```bash
-   git clone --branch v1.2.0 --depth 1 \
+   git clone --branch v1.3.0 --depth 1 \
      https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware.git
    cd wobkey-crush80-reboot-pro-firmware
    ```
@@ -84,7 +91,7 @@ patch and replacement components, not the manufacturer's full firmware source.
    ```
 
 The flasher checks the exact image hash and permitted source CRC, waits for
-OTA success, then verifies CRC **13dadb12** on a fresh connection. It refuses
+OTA success, then verifies CRC **2f4f4974** on a fresh connection. It refuses
 unknown target images and unlisted source versions. See the
 [transition policy and hardware-testing limits](docs/NATIVEHELD.md#flasher-policy).
 Restore your settings after the update and check your bindings after reconnecting.
@@ -93,7 +100,7 @@ For an offline packet check that does not open the keyboard:
 
 ```bash
 python3 tools/crush80.py dry-run \
-  firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin
+  firmware/patched/Crush80-RGB-0108-NativeHeld-20261101.bin
 ```
 
 Official 0108 and RC2 rollback targets are included in the flasher policy.
@@ -124,6 +131,7 @@ Full details: [NativeHeld behavior, build and validation](docs/NATIVEHELD.md).
 
 | Image | SHA-256 | OTA CRC |
 |---|---|---|
+| [NativeHeld v1.3.0 (2026-11-01)](firmware/patched/Crush80-RGB-0108-NativeHeld-20261101.bin) | `3b6c6755b1a3b263d6e55c2a4415d7e91689ac43f897b3be970b236ef970de3a` | `2f4f4974` |
 | [NativeHeld preview.2 (2026-10-31)](firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin) | `46c51d50748dcef47c0e1bf2b0460bf2441e626ed8f4cf73eec2498ce6c363d0` | `239d8875` |
 | [NativeHeld preview.1 (2026-10-21)](firmware/patched/Crush80-RGB-0108-NativeHeld-20261021.bin) | `7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35` | `350ad5c5` |
 | [RC2](firmware/patched/Crush80-RGB-20260618-MacLayers-RC2.bin) | `7663f2fc7357ce3f4ae7f1331577c8e0f2a1bd0f7b1c038a89a6efab31ce7d88` | `fe1aa4c2` |

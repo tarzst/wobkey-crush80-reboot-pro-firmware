@@ -39,20 +39,11 @@ static vck_result update(cch_state *state, const ccd_writer *writer,
             present = 1;
         }
     }
-    uint8_t old_modifiers = basic[0];
-    uint8_t modifiers = (uint8_t)(old_modifiers ^ desired.modifiers);
-    if ((down && (old_modifiers & modifiers) != 0) ||
-        (!down && (desired.modifiers & modifiers) != 0) || (modifiers & (uint8_t)~action.modifiers) != 0) {
-        return VCK_INVALID;
-    }
+    uint8_t modifiers = (uint8_t)(basic[0] ^ desired.modifiers);
     uint8_t usage_delta = 0;
     if (action.usage != 0) {
-        int wanted = desired.usage != 0;
         present |= (unsigned)in_bitmap(bitmap, action.usage);
-        if (wanted != (present != 0)) {
-            if (wanted != down) {
-                return VCK_INVALID;
-            }
+        if ((desired.usage != 0) != (present != 0)) {
             if (down && free == 0) {
                 if (writer->overflow_enabled == NULL || !*writer->overflow_enabled) {
                     return VCK_OVERFLOW;
@@ -126,9 +117,6 @@ vck_result ccd_synthetic(cch_state *state, const ccd_writer *writer,
 vck_result ccd_macro_action(cch_state *state, const ccd_writer *writer,
                             uint8_t down, vck_action action)
 {
-    if (action.usage != 0 && (action.usage < VCK_USAGE_MIN || action.usage > VCK_USAGE_MAX)) {
-        return VCK_UNSUPPORTED;
-    }
     unsigned index = action.usage == 0 ? 0 : 1u + ((unsigned)action.usage - VCK_USAGE_MIN) / 8u;
     uint8_t before_modifiers = state->macro[0], before_usage = state->macro[index];
     state->macro[0] = down ? (uint8_t)(before_modifiers | action.modifiers) :
