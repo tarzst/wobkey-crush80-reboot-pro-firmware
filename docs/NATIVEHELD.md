@@ -1,12 +1,21 @@
-# NativeHeld preview — 2026-10-31 (`v1.1.0-nativeheld-preview.2`)
+# NativeHeld — 2026-11-01 (`v1.2.0`)
 
 This document covers the hardware-tested NativeHeld application images for the
 WOBKEY Crush 80 Reboot Pro RGB, based on official USB release 0108. They add
-held `QK_MODS` bindings and transparent extra layers to RC2. This is an
-experimental, hardware-tested preview, not a full QMK implementation or a
-guarantee against bricking.
+full QMK/VIA layer operators (`MO`, `TG`, `TO`, `DF`, `OSL`, `TT`, `LM`,
+`FN_MO13`/`FN_MO23` Tri-Layer, multi-layer `KC_TRNS`), Tap-Hold (`MT`/`LT`),
+One-Shot Modifiers (`OSM`), Grave Escape (`KC_GESC`), held `QK_MODS` bindings,
+dirty-layer flash persistence, and Telink B91 hardware watchdog protection to
+RC2. This is an experimental, hardware-tested firmware patch, not a full QMK
+port or a guarantee against bricking.
 
-- Current image (`preview.2`, 2026-10-31):
+- Current release (`v1.2.0`, 2026-11-01):
+  - File: `firmware/patched/Crush80-RGB-0108-NativeHeld-20261101.bin`
+  - Reference ELF: `firmware/nativeheld/NativeHeld-20261101.elf`
+  - Size: 124436 bytes (`8037 / 8132` payload bytes used)
+  - SHA-256: `68bb25b07e3c047a60e606410723977f9b689d9131393be5d3a8c5a0ed778ca4`
+  - OTA CRC: `13dadb12`
+- Refactored preview (`preview.2`, 2026-10-31):
   - File: `firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin`
   - Reference ELF: `firmware/nativeheld/NativeHeld-20261031.elf`
   - Size: 124436 bytes (`7563 / 7716` payload bytes used)
@@ -22,19 +31,36 @@ guarantee against bricking.
 ## Behavior
 
 - Windows uses layers 0/1, macOS uses 2/3, as in RC2.
-- `KC_TRNS` on layer 1 or 3 falls back to its paired base, 0 or 2.
+- Multi-layer `KC_TRNS` searches top-down across active layers (`3 -> 2 -> 1 -> 0`)
+  down to the effective base layer (`0` on Windows, `2` on macOS, or `DF` base).
+- QMK/VIA layer operators: `MO`, `TG`, `TO`, `DF`, `OSL` (One-Shot Layer),
+  `TT` (Tap-Toggle Layer), `LM(layer, mod)` (`0x5000..0x507F`), and
+  `FN_MO13` / `FN_MO23` Tri-Layer (`0x7700..0x7701`, `0x5F10..0x5F11`).
+- Tap-Hold `MT(mod, kc)` (`0x2000..0x3FFF`) and `LT(layer, kc)` (`0x4000..0x43FF`)
+  use a 200 ms tapping term (`3 200 000` ticks of the 16 MHz timer `0x80140200`)
+  and `HOLD_ON_OTHER_KEY_PRESS`.
+- One-Shot Modifiers `OSM(mod)` (`0x52A0..0x52BF`) latch modifiers for the next
+  non-modifier key on a quick tap (stacking multiple `OSM` taps), or act as a
+  held modifier when held across another key or past 200 ms.
+- Grave Escape `KC_GESC` (`0x7C16` / `0x5C16`) emits `KC_GRV` (`0x35`) when
+  `Shift` or `GUI` is active (including `OSM`), and `KC_ESC` (`0x29`) otherwise.
 - `QK_MODS` presses its modifiers and basic usage until the physical key is
   released. Release uses the latched action, including when Fn is released first.
 - Independent owners retain shared modifiers/usages until the last owner releases.
+- Telink B91 hardware watchdog (`0x8014014C = 0x0B700000` ~4.0 s at 48 MHz PCLK,
+  `0x80140142 = 0x80`) is armed and cleared (`0x80140143 = 0x0C`) on every
+  main-loop pass once `READY == 8`. Replacing the dead stock layer handler
+  `0x12F18..0x130B4` also removes the stock `gp+804 & 0x20` status-bit collision
+  between `MO(1)` and background RGB flash persistence (`0x1AC64` -> `0x8A000`).
 - The command handler supports VIA keymap, encoder, RGB and 16 macro slots.
   The macro buffer is 512 bytes. The final 28-byte read starting at offset 504
   is accepted, matching the request made by usevia.app.
-- Macro uploads preserve byte 511. Playback uses a bounded streaming cache;
-  physical, builtin and macro keyboard actions share ownership state.
+- Macro uploads preserve byte 511. Playback uses a bounded 32-byte streaming
+  cache; physical, builtin and macro keyboard actions share ownership state.
 
 Examples used in the tested Mac layout: `0x0A22` (Shift+GUI+5), `0x0914`
-(Ctrl+GUI+Q), `0x0814` (GUI+Q), `0x0152` (Ctrl+Up), `0x082C` (GUI+Space).
-This does not add MT/LT, One-Shot or arbitrary mixed left/right modifiers.
+(Ctrl+GUI+Q), `0x0814` (GUI+Q), `0x0152` (Ctrl+Up), `0x082C` (GUI+Space), as
+well as `MT`, `LT`, `OSL` and `OSM` bindings.
 
 ## Reproduce from C and assembly
 
@@ -124,7 +150,7 @@ After saving settings, a deliberate update uses:
 ```bash
 python3 tools/crush80.py info
 python3 tools/crush80.py flash \
-  firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin --yes
+  firmware/patched/Crush80-RGB-0108-NativeHeld-20261101.bin --yes
 ```
 
 Flashing is optional and carries the limitations above. This repository update

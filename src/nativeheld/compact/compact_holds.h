@@ -49,25 +49,11 @@ typedef struct {
  * and the lifetime of dictionary and storage are caller obligations.
  */
 vck_result cch_decode(uint16_t code, vck_action *out);
+int cch_keyboard(uint16_t code, vck_action *action);
 vck_result cch_reset(cch_state *state, uint8_t preserve_stock);
-vck_result cch_physical(cch_state *state, uint16_t position, uint8_t down,
-                         uint16_t selected_code, cch_event *out);
 vck_result cch_builtin(cch_state *state, uint16_t position, uint8_t down,
                         vck_action action, const uint16_t *dict, uint8_t count);
-vck_result cch_macro_modifier(cch_state *state, uint16_t modifier, uint8_t down);
-vck_result cch_macro_usage(cch_state *state, uint16_t usage, uint8_t down);
-vck_result cch_report(const cch_state *state, const uint16_t *dict, uint8_t count,
-                       vck_report *out);
-/* report uses the legacy 04..91 bitmap and returns UNSUPPORTED atomically
- * while an OEM usageEE owner is active. query represents that raw usage
- * losslessly and is the production delta backend's union interface. */
-/* Same owner validation/union as report, but materialize only all modifiers
- * and whether the requested usage is held. usage0 requests modifiers only.
- * On success out->usage is either the requested usage or0. Error is atomic.
- * The requested domain additionally includes CCH_OEM_USAGE.
- */
 vck_result cch_query(const cch_state *state, const uint16_t *dict, uint8_t count,
                       uint8_t usage, vck_action *out);
-int cch_idle(const cch_state *state);
 
 #endif

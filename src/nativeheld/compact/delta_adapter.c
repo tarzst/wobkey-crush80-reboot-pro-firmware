@@ -3,8 +3,7 @@
 
 __attribute__((always_inline)) static inline int valid_writer(const ccd_writer *writer)
 {
-    return writer != NULL && writer->basic != NULL && writer->bitmap != NULL &&
-           writer->emit != NULL && writer->overflow_enabled <= 1;
+    return writer != NULL;
 }
 
 static int in_bitmap(const volatile uint8_t *bitmap, unsigned usage)
@@ -19,7 +18,7 @@ static int in_bitmap(const volatile uint8_t *bitmap, unsigned usage)
 /* A source can only add/remove its own raw action. Recompute the union after
  * mutation; emit only the action components that actually changed. Thus the
  * OEM's OR/AND-NOT operations never remove another owner's contribution or
- * append a duplicate usage. All failure checks precede the first emission.
+ * append a duplicate usage.
  */
 static vck_result update(cch_state *state, const ccd_writer *writer,
                           vck_action action, uint8_t down)
@@ -31,30 +30,17 @@ static vck_result update(cch_state *state, const ccd_writer *writer,
         return result;
     }
     const volatile uint8_t *basic = writer->basic, *bitmap = writer->bitmap;
-    if (basic[1] != 0 || bitmap[0] != 1 || (bitmap[14] & 0xe0u) != 0 || bitmap[15] != 0) {
-        return VCK_INVALID;
-    }
     unsigned free = 0, present = 0;
     for (unsigned i = 2; i < 8; ++i) {
         unsigned usage = basic[i];
         if (usage == 0) {
             ++free;
-            continue;
+        } else if (usage == action.usage) {
+            present = 1;
         }
-        if (usage < VCK_USAGE_MIN || (usage > VCK_USAGE_MAX && usage != CCH_OEM_USAGE) ||
-            in_bitmap(bitmap, usage)) {
-            return VCK_INVALID;
-        }
-        for (unsigned j = 2; j < i; ++j) {
-            if (basic[j] == usage) {
-                return VCK_INVALID;
-            }
-        }
-        present |= (unsigned)(usage == action.usage);
     }
     uint8_t old_modifiers = basic[0];
     uint8_t modifiers = (uint8_t)(old_modifiers ^ desired.modifiers);
-    /* An inconsistent external report must not turn a press into a release. */
     if ((down && (old_modifiers & modifiers) != 0) ||
         (!down && (desired.modifiers & modifiers) != 0) || (modifiers & (uint8_t)~action.modifiers) != 0) {
         return VCK_INVALID;
@@ -68,7 +54,7 @@ static vck_result update(cch_state *state, const ccd_writer *writer,
                 return VCK_INVALID;
             }
             if (down && free == 0) {
-                if (!writer->overflow_enabled) {
+                if (writer->overflow_enabled == NULL || !*writer->overflow_enabled) {
                     return VCK_OVERFLOW;
                 }
                 if (action.usage > 0x70) {
@@ -87,66 +73,48 @@ static vck_result update(cch_state *state, const ccd_writer *writer,
 vck_result ccd_physical(cch_state *state, const ccd_writer *writer,
                         uint16_t position, uint8_t down, uint16_t code, cch_event *out)
 {
-    if (state == NULL || !valid_writer(writer) || position >= CCH_POSITIONS || down > 1 || out == NULL) {
-        return VCK_INVALID;
-    }
+    uint8_t mask = (uint8_t)(1u << (position % 8));
     uint8_t before_active = state->active[position / 8];
+    if (((before_active & mask) != 0) == (down != 0)) {
+        *out = (cch_event){0, CCH_NONE};
+        return VCK_OK;
+    }
     uint16_t before_code = state->physical[position];
-    cch_event event;
-    vck_result result = cch_physical(state, position, down, code, &event);
-    if (result == VCK_OK && event.route == CCH_KEYBOARD) {
-        vck_action action;
-        result = cch_decode(event.code, &action);
-        if (result == VCK_OK) {
-            result = update(state, writer, action, down);
-        }
+    uint16_t target_code = down ? code : before_code;
+    vck_action action;
+    int handled = cch_keyboard(target_code, &action);
+    if (down && !handled && target_code >= 0x100 && target_code <= 0x1fff) {
+        return VCK_UNSUPPORTED;
+    }
+    state->physical[position] = down ? target_code : 0;
+    state->active[position / 8] = down ? (uint8_t)(before_active | mask) :
+                                         (uint8_t)(before_active & (uint8_t)~mask);
+    if (handled) {
+        vck_result result = update(state, writer, action, down);
         if (result != VCK_OK) {
             state->active[position / 8] = before_active;
             state->physical[position] = before_code;
+            return result;
         }
     }
-    if (result == VCK_OK) {
-        *out = event;
-    }
-    return result;
+    *out = (cch_event){target_code, (uint8_t)(handled ? CCH_KEYBOARD : CCH_STOCK)};
+    return VCK_OK;
 }
 
 vck_result ccd_synthetic(cch_state *state, const ccd_writer *writer,
                          uint16_t source, uint8_t down, vck_action action)
 {
-    if (state == NULL || !valid_writer(writer) || down > 1) {
-        return VCK_INVALID;
+    unsigned position = (unsigned)source - VCSYN_BUILTIN_BASE;
+    uint8_t *owner = &state->builtin[position];
+    uint8_t before = *owner;
+    if (before != 0) {
+        uint16_t packed = cch_rc2_builtin_dictionary[before - 1];
+        action = (vck_action){(uint8_t)(packed >> 8), (uint8_t)packed};
     }
-    uint8_t *owner;
-    uint8_t before;
-    vck_result result;
-    if (source >= VCSYN_BUILTIN_BASE && source < VCSYN_MACRO_MOD_BASE) {
-        unsigned position = (unsigned)source - VCSYN_BUILTIN_BASE;
-        owner = &state->builtin[position];
-        before = *owner;
-        if (before > CCH_RC2_BUILTIN_COUNT) {
-            return VCK_INVALID;
-        }
-        if (before != 0) {
-            uint16_t packed = cch_rc2_builtin_dictionary[before - 1];
-            action = (vck_action){(uint8_t)(packed >> 8), (uint8_t)packed};
-        }
-        result = cch_builtin(state, (uint16_t)position, down, action,
-                             cch_rc2_builtin_dictionary, CCH_RC2_BUILTIN_COUNT);
-        if (result != VCK_OK || before == *owner) {
-            return result;
-        }
-    } else if (source >= VCSYN_MACRO_MOD_BASE && source < VCSYN_CAPACITY) {
-        unsigned index = (unsigned)source - VCSYN_MACRO_MOD_BASE;
-        vck_action expected = index < 8 ? (vck_action){(uint8_t)(1u << index), 0} :
-                              (vck_action){0, (uint8_t)(index - 8 + VCK_USAGE_MIN)};
-        if (action.modifiers != expected.modifiers || action.usage != expected.usage) {
-            return VCK_UNSUPPORTED;
-        }
-        return ccd_macro_action(state, writer, down, action);
-    } else {
-        return source == VCSYN_NO_SOURCE && action.modifiers == 0 && action.usage == 0 ?
-               VCK_OK : VCK_UNSUPPORTED;
+    vck_result result = cch_builtin(state, (uint16_t)position, down, action,
+                                    cch_rc2_builtin_dictionary, CCH_RC2_BUILTIN_COUNT);
+    if (result != VCK_OK || before == *owner) {
+        return result;
     }
     result = update(state, writer, action, down);
     if (result != VCK_OK) {
@@ -158,9 +126,6 @@ vck_result ccd_synthetic(cch_state *state, const ccd_writer *writer,
 vck_result ccd_macro_action(cch_state *state, const ccd_writer *writer,
                             uint8_t down, vck_action action)
 {
-    if (state == NULL || !valid_writer(writer) || down > 1) {
-        return VCK_INVALID;
-    }
     if (action.usage != 0 && (action.usage < VCK_USAGE_MIN || action.usage > VCK_USAGE_MAX)) {
         return VCK_UNSUPPORTED;
     }

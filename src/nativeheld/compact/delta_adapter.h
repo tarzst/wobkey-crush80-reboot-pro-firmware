@@ -10,7 +10,7 @@ typedef struct {
     const volatile uint8_t *bitmap;
     ccd_emit emit;
     void *context;
-    uint8_t overflow_enabled;
+    const volatile uint8_t *overflow_enabled;
 } ccd_writer;
 
 /* Offline delta adapter: the caller owns initialized cch_state and the OEM

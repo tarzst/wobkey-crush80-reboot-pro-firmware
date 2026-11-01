@@ -1,14 +1,22 @@
 # Crush 80 firmware project context
 
-## Current result — 2026-10-21
+## Current result — 2026-11-01 (`v1.2.0`)
 
-NativeHeld preview is hardware-tested on one Crush 80 Reboot Pro RGB. The exact
-image SHA-256 is `7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e35`,
-OTA CRC `350ad5c5`, size 124436 bytes. The owner confirmed native held chords
-on macOS over USB, VIA commands/macros, Fn layers, BLE typing and persistence
-of the native layout after reconnect. The owner subsequently reported native
-chords over BLE, cold startup and sleep working in their manual checks. This
-is a functional milestone, not
+NativeHeld `v1.2.0` is hardware-tested on the owner's Crush 80 Reboot Pro RGB.
+The exact image (`firmware/patched/Crush80-RGB-0108-NativeHeld-20261101.bin`)
+has SHA-256 `68bb25b07e3c047a60e606410723977f9b689d9131393be5d3a8c5a0ed778ca4`,
+OTA CRC `13dadb12`, reference ELF `firmware/nativeheld/NativeHeld-20261101.elf`
+SHA-256 `8e9ab11f9cb047af42984b2a40b131dff9f72894456ceb786ce8d43815f5e598`,
+size 124436 bytes (`8037 / 8132` payload bytes across 17 regions). It implements
+full QMK/VIA layer operators (`MO`, `TG`, `TO`, `DF`, `OSL`, `TT`, `LM`,
+`FN_MO13`/`FN_MO23` Tri-Layer, multi-layer `KC_TRNS`), Tap-Hold (`MT`/`LT`),
+One-Shot Modifiers (`OSM`), `KC_GESC`, held `QK_MODS` chords, dirty-layer flash
+persistence, and Telink B91 hardware watchdog protection (`0x8014014C = 0x0B700000`
+~4.0 s, `0x80140142 = 0x80`, cleared via `0x80140143 = 0x0C` on each main-loop
+pass), while eliminating the stock `0x12F18` `gp+804 & 0x20` status-bit collision
+with background RGB flash saves. Earlier `preview.1` (`7d154c51…`, `350ad5c5`)
+and `preview.2` (`46c51d50…`, `239d8875`) remain in the repository and flasher
+allowlist. This is a functional milestone, not
 proof that every transport, interrupt and power-management case is safe.
 
 ## Milestones
@@ -135,12 +143,18 @@ directly inside `timer0_irq_handler` (`0x2B80`).
 - `docs/NATIVEHELD.md`: validation scope, reproduction and known limitations.
 - `docs/VIA-ROADMAP.ru.md`: original requirements and remaining scope.
 
-The replacement occupies 7613 of 7716 selected bytes. Persistent ownership
-state is 420 bytes; engine metadata 28 and playback cache 64 reuse the original
-512-byte macro playback object at `0x80BE4`. A runtime reset preserves the
-in-flight binding lease; cold initialization clears it. Journal scratch data
-uses live stack storage. No permanent stack reservation or image extension is
-introduced. Firmware startup and initializer source ranges remain unchanged.
+The replacement occupies 8037 of 8132 selected bytes across 17 code regions
+(including the retired stock layer handler `0x12F18..0x130B4` merged into
+Region 4 `0x12C28..0x130B4`). Persistent ownership state is 420 bytes, layer
+and Tap-Hold/OSM state is 32 bytes, engine metadata is 28 bytes and macro
+playback cache is 32 bytes, reusing the original 512-byte macro playback object
+at `0x80BE4..0x80DE4` while keeping the 512-byte VIA macro staging buffer at
+`0x80DE4..0x80FE4` intact. A runtime reset preserves the in-flight binding
+lease, toggled layers (`TG`) and custom default layer (`DF`); cold
+initialization clears all 512 bytes. Journal scratch data uses the macro
+streaming cache or live stack storage. No permanent stack reservation or image
+extension is introduced. Firmware startup and initializer source ranges remain
+unchanged.
 
 ## Known issues and limits
 
@@ -154,7 +168,6 @@ introduced. Firmware startup and initializer source ranges remain unchanged.
   cases remain unverified. Modeling is not hardware equivalence.
 - The macro byte-511 fix is verified offline. Hardware backup/read-back already
   contained zero there, so it did not independently validate a fresh `0xFF` tail.
-- MT/LT, One-Shot and full QMK behavior are outside this preview.
 - OTA clears settings and recovery requires the OTA interface to enumerate.
 
 ## Maintenance rules

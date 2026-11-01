@@ -45,4 +45,6 @@ typedef struct {
 
 _Static_assert(sizeof(vck_report) == 19, "logical report layout changed");
 
+void cdb_memzero(volatile void *ptr, unsigned len);
+
 #endif

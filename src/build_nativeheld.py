@@ -24,9 +24,9 @@ OUTPUT_SHA256 = '7d154c51564138a5e2307d5da40b66a432452628b826592a73795d078ed49e3
 TRNS_SHA256 = '31722203eab882eb436b80c2bf02ee54d32c125b7474700c40a220c2b883918b'
 XIP = 0x20000000
 CFLAGS = ['-std=c11', '-Wall', '-Wextra', '-Wconversion', '-Wshadow', '-Werror', '-Wpedantic',
-          '-march=rv32imac_zicsr', '-mabi=ilp32', '-Os', '-ffreestanding', '-fno-builtin',
+          '-march=rv32imac_zicsr', '-mabi=ilp32', '-ffreestanding', '-fno-builtin',
           '-fno-pic', '-msmall-data-limit=0', '-ffunction-sections', '-fdata-sections',
-          '-fstack-usage', '-fno-tree-loop-distribute-patterns']
+          '-fstack-usage', '-fno-tree-loop-distribute-patterns', '-fno-jump-tables']
 MODULES = ['compact_holds.c', 'delta_adapter.c', 'macro_stream.c', 'firmware_binding.c', 'via_commands.c']
 FIXED_SECTIONS = {'.text.cdb_hook_reset_common': 0xcccc, '.text.cdb_macro_poll': 0x13df8}
 HOOK_SPECS = [
@@ -93,7 +93,7 @@ def compile_payload(cc, build_dir, plan, script_path=None):
     build_dir.mkdir(parents=True, exist_ok=True)
     memory, elf = build_dir / 'memory.o', build_dir / 'payload.elf'
     script = SOURCE / 'layout.ld' if script_path is None else script_path
-    subprocess.run([compiler, *CFLAGS, '-march=rv32imac', '-c',
+    subprocess.run([compiler, *CFLAGS, '-Os', '-march=rv32imac', '-c',
                     str(SOURCE / 'core/freestanding_memory.c'), '-o', str(memory)], check=True)
     args = [compiler, *CFLAGS, '-Oz', '-flto', '-save-temps=obj', '-nostdlib', '-nostartfiles',
             '-Wl,--gc-sections', '-Wl,--relax', '-Wl,--no-relax-gp', '-Wl,--orphan-handling=error',
@@ -121,26 +121,60 @@ def subset_pack(items, bounds):
             cursors[idx] = target + item['size']
         else:
             remaining.append(item)
-    placed = {}
-    order = sorted(range(len(bounds)), key=lambda i: bounds[i][1] - cursors[i])
-    for idx in order:
-        start, end = cursors[idx], bounds[idx][1]
-        states = {start: []}
-        for item in sorted(remaining, key=lambda x: (-x['size'], x['section'])):
-            nxt = dict(states)
-            for pos, chosen in states.items():
-                pos2 = align_up(pos, item['align']) + item['size']
-                if pos2 <= end and (pos2 not in nxt or len(chosen) + 1 > len(nxt[pos2])):
-                    nxt[pos2] = [*chosen, item]
-            states = nxt
-        best_pos = max(states, key=lambda p: (p, -len(states[p])))
-        chosen = states[best_pos]
-        placed[idx] = [*fixed_placed[idx], *sorted(chosen, key=lambda x: (-x['align'], x['section']))]
-        used = {x['section'] for x in chosen}
-        remaining = [x for x in remaining if x['section'] not in used]
-    if remaining:
-        raise ValueError(f'unplaced sections: {[x["section"] for x in remaining]}')
-    return [placed[i] for i in range(len(bounds))]
+    import random
+    for seed in range(256):
+        rng = random.Random(seed)
+        shuffled = list(remaining)
+        rng.shuffle(shuffled)
+        ordered = sorted(shuffled, key=lambda x: (-x['size'], -x['align']))
+        placed = {i: list(fixed_placed[i]) for i in range(len(bounds))}
+        cur = list(cursors)
+        ok = True
+        for item in ordered:
+            candidates = [
+                i for i, (_, b) in enumerate(bounds)
+                if align_up(cur[i], item['align']) + item['size'] <= b
+            ]
+            if not candidates:
+                ok = False
+                break
+            best = min(
+                candidates,
+                key=lambda i: (
+                    bounds[i][1] - (align_up(cur[i], item['align']) + item['size']),
+                    rng.random(),
+                ),
+            )
+            cur[best] = align_up(cur[best], item['align']) + item['size']
+            placed[best].append(item)
+        if ok:
+            return [placed[i] for i in range(len(bounds))]
+    orders = [
+        sorted(range(len(bounds)), key=lambda i: bounds[i][1] - cursors[i]),
+        sorted(range(len(bounds)), key=lambda i: -(bounds[i][1] - cursors[i])),
+    ]
+    for tie in (-1, 1):
+        for order in orders:
+            rem = list(remaining)
+            placed = {}
+            for idx in order:
+                start, end = cursors[idx], bounds[idx][1]
+                states = {start: []}
+                for item in sorted(rem, key=lambda x: (-x['align'], -x['size'], x['section'])):
+                    nxt = dict(states)
+                    for pos, chosen in states.items():
+                        pos2 = align_up(pos, item['align']) + item['size']
+                        if pos2 <= end and (pos2 not in nxt or (tie * len(chosen) < tie * len(nxt[pos2]))):
+                            nxt[pos2] = [*chosen, item]
+                    states = nxt
+                best_pos = max(states, key=lambda p: (p, tie * len(states[p])))
+                chosen = states[best_pos]
+                placed[idx] = [*fixed_placed[idx], *chosen]
+                used = {x['section'] for x in chosen}
+                rem = [x for x in rem if x['section'] not in used]
+            if not rem:
+                return [placed[i] for i in range(len(bounds))]
+    raise ValueError(f'unplaced sections: {[x["section"] for x in rem]}')
 
 
 def render_script(groups, bounds, asserts=True):
@@ -169,7 +203,7 @@ def repack_payload(cc, build_dir, rc2):
     bounds = [tuple(r) for r in plan['regions']]
     build_dir.mkdir(parents=True, exist_ok=True)
     memory, unplaced = build_dir / 'memory.o', build_dir / 'unplaced.elf'
-    subprocess.run([compiler, *CFLAGS, '-march=rv32imac', '-c',
+    subprocess.run([compiler, *CFLAGS, '-Os', '-march=rv32imac', '-c',
                     str(SOURCE / 'core/freestanding_memory.c'), '-o', str(memory)], check=True)
     args = [compiler, *CFLAGS, '-Oz', '-flto', '-nostdlib', '-nostartfiles',
             '-Wl,--gc-sections', '-Wl,--relax', '-Wl,--no-relax-gp',
@@ -187,7 +221,13 @@ def repack_payload(cc, build_dir, rc2):
             continue
         out_name = '.text.irq_guard' if s.name == '.text' else s.name
         items.append({'section': out_name, 'pattern': s.name,
-                      'size': s.size, 'align': max(s.alignment, 4 if '.rodata' in s.name else 2)})
+                      'size': s.size, 'align': max(s.alignment, 2)})
+    flat_file = build_dir / 'flat.ld'
+    flat_file.write_text(render_script([items], [(0x10000, 0x18000)], asserts=False))
+    flat_elf = compile_payload(compiler, build_dir, plan, flat_file)
+    flat_sizes = {s.name: s.size for s in sections(flat_elf) if s.flags & 2 and s.size}
+    for it in items:
+        it['size'] = flat_sizes.get(it['section'], it['size'])
     for _ in range(3):
         groups = subset_pack(items, bounds)
         probe_file = build_dir / 'probe.ld'

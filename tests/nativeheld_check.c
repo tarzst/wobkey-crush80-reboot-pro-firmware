@@ -84,7 +84,8 @@ int main(void)
 {
     cm_memory memory;
     cch_event event;
-    ccd_writer writer = {basic, bitmap, emit, NULL, 1};
+    static const uint8_t nkro_on = 1;
+    ccd_writer writer = {basic, bitmap, emit, NULL, &nkro_on};
     assert(sizeof(memory) == 512 && sizeof(memory.owners) == 420);
     assert(cm_init(&memory) == VCK_OK);
     bitmap[0] = 1;

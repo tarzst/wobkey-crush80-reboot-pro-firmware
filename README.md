@@ -5,11 +5,13 @@
 Reproducible patches for the **WOBKEY Crush 80 Reboot Pro RGB**, based on
 official WOBLAB firmware dated 2026-06-18 (USB release **0108**).
 
-The current release is [**NativeHeld preview — v1.1.0-nativeheld-preview.2**](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2).
-It adds native held modifier combinations and transparent Fn-layer keys to the
-macOS layer fixes, with replacement VIA command and macro handling, dirty-layer
-flash persistence (eliminating redundant flash writes on unchanged VIA layout
-uploads) and consolidated RV32IMC emulation tests.
+The current release is [**NativeHeld — v1.2.0**](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.2.0).
+It adds full QMK/VIA layer operators (`MO`, `TG`, `TO`, `DF`, `OSL`, `TT`,
+`FN_MO13`/`FN_MO23` Tri-Layer, multi-layer `KC_TRNS`), Tap-Hold (`MT(mod, kc)`
+and `LT(layer, kc)`), One-Shot Modifiers (`OSM`), Layer-Mod (`LM`), Grave
+Escape (`KC_GESC`), native held `QK_MODS` combinations, dirty-layer flash
+persistence, and Telink B91 hardware watchdog protection (~4.0 s timeout) on top
+of the macOS layer fixes.
 
 **Experimental, hardware-tested on one keyboard. This is not a full QMK port.**
 Read the [validation scope and known limitations](docs/NATIVEHELD.md) before use.
@@ -21,23 +23,34 @@ macOS mode, overriding custom VIA assignments. The patches make VIA bindings
 control the resulting keys:
 
 - Windows uses layers **0/1**; macOS uses **2/3**, including custom F-row bindings.
-- `KC_TRNS` on Fn layer 1 or 3 inherits the binding from base layer 0 or 2.
+- Multi-layer `KC_TRNS` searches from the highest active layer (`3 -> 2 -> 1 -> 0`)
+  down to the active OS base (`0` on Windows, `2` on macOS, or custom `DF` base).
+- Full QMK/VIA layer operators: `MO`, `TG`, `TO`, `DF`, `OSL` (One-Shot Layer),
+  `TT` (Tap-Toggle Layer), `LM(layer, mod)` and `FN_MO13` / `FN_MO23` Tri-Layer.
+- Tap-Hold keys `MT(mod, kc)` (`0x2000..0x3FFF`) and `LT(layer, kc)` (`0x4000..0x43FF`)
+  with a 200 ms tapping term and `HOLD_ON_OTHER_KEY_PRESS`.
+- One-Shot Modifiers `OSM(mod)` (`0x52A0..0x52BF`) with multi-modifier stacking
+  and hold fallback, plus Grave Escape `KC_GESC` (`0x7C16`: `Esc` normally,
+  `~` / `` ` `` with `Shift` / `GUI`).
 - Native `QK_MODS` combinations hold modifiers and the basic key until physical
   release. Releasing Fn first still releases the action selected on key-down.
 - Shared modifiers and key usages remain held until their last owner releases.
+- Hardware watchdog (`0x8014014C = 0x0B700000` ~4.0 s, `0x80140142 = 0x80`) is
+  enabled and serviced on each main-loop pass, and the stock `gp+804 & 0x20`
+  status-bit collision between `MO(1)` and RGB flash persistence is eliminated.
 - VIA keymap, encoder, RGB and 16 macro slots are supported. The replacement
   handler fixes the final macro-buffer read used by usevia.app and preserves
   macro byte 511.
 
 Examples from the tested Mac layout include Shift+GUI+5, Ctrl+GUI+Q, GUI+Q,
-Ctrl+Up and GUI+Space. MT/LT, One-Shot and arbitrary mixed left/right modifier
-combinations are not implemented.
+Ctrl+Up and GUI+Space, as well as `MT`, `LT`, `OSL` and `OSM` bindings.
 
 ## Choose a release
 
 | Release | Scope |
 |---|---|
-| [NativeHeld preview](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2) | Current preview: macOS layers, transparent Fn-layer keys, held modifier combinations and replacement VIA/macro handling with dirty-layer flash persistence. |
+| [NativeHeld v1.2.0](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.2.0) | Current release: macOS layers, full QMK/VIA layer stack (`MO`/`TG`/`TO`/`DF`/`OSL`/`TT`/`LM`/Tri-Layer/`KC_TRNS`), `MT`/`LT` Tap-Hold, `OSM`, `KC_GESC`, held `QK_MODS`, dirty-layer flash persistence, and hardware watchdog. |
+| [NativeHeld preview](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2) | Earlier preview: macOS layers, transparent Fn-layer keys, held `QK_MODS` and replacement VIA/macro handling. |
 | [RC2](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.0.0-rc2) | Earlier macOS layer/F-row fix. Retains the OEM VIA handler; does not add native `QK_MODS` or `KC_TRNS`. |
 
 The NativeHeld release includes the flashable `.bin`, reference payload `.elf`,
@@ -53,7 +66,7 @@ patch and replacement components, not the manufacturer's full firmware source.
    its tag:
 
    ```bash
-   git clone --branch v1.1.0-nativeheld-preview.2 --depth 1 \
+   git clone --branch v1.2.0 --depth 1 \
      https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware.git
    cd wobkey-crush80-reboot-pro-firmware
    ```
@@ -67,11 +80,11 @@ patch and replacement components, not the manufacturer's full firmware source.
    ```bash
    python3 tools/crush80.py info
    python3 tools/crush80.py flash \
-     firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin --yes
+     firmware/patched/Crush80-RGB-0108-NativeHeld-20261101.bin --yes
    ```
 
 The flasher checks the exact image hash and permitted source CRC, waits for
-OTA success, then verifies CRC **239d8875** on a fresh connection. It refuses
+OTA success, then verifies CRC **13dadb12** on a fresh connection. It refuses
 unknown target images and unlisted source versions. See the
 [transition policy and hardware-testing limits](docs/NATIVEHELD.md#flasher-policy).
 Restore your settings after the update and check your bindings after reconnecting.

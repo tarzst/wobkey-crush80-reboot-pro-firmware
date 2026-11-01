@@ -18,8 +18,8 @@ static unsigned be16(const uint8_t *p)
 
 static void copy(volatile uint8_t *destination, const volatile uint8_t *source, unsigned size)
 {
-    for (unsigned i = 0; i < size; ++i) {
-        destination[i] = source[i];
+    while (size--) {
+        *destination++ = *source++;
     }
 }
 
@@ -73,48 +73,30 @@ static void keymap_read(unsigned offset, uint8_t *data, unsigned size)
 
 static void rgb(uint8_t *packet, uint8_t write)
 {
-    unsigned value, base;
-    uint8_t legacy = (uint8_t)(CONFIG[31] == 9);
-    if (legacy) {
-        if (packet[1] < 0x80 || packet[1] > 0x83) {
-            return;
-        }
-        value = (unsigned)packet[1] - 0x80u;
-        base = 2;
-    } else {
-        if (packet[1] != 3 || packet[2] < 1 || packet[2] > 4) {
-            return;
-        }
-        value = (unsigned)packet[2] - 1u;
-        base = 3;
+    if (packet[1] != 3 || packet[2] < 1 || packet[2] > 4) {
+        return;
     }
+    unsigned value = (unsigned)packet[2] - 1u;
     if (!write) {
-        packet[base + 1] = 0;
+        packet[4] = 0;
         if (value == 0) {
-            packet[base] = legacy ? cdb_brightness_table[CONFIG[2]] : CONFIG[2];
+            packet[3] = CONFIG[2];
         } else if (value == 1) {
-            packet[base] = CONFIG[1];
+            packet[3] = CONFIG[1];
         } else if (value == 2) {
-            packet[base] = legacy && CONFIG[3] == 0 ? 3 : (uint8_t)(4u - CONFIG[3]);
+            packet[3] = (uint8_t)(4u - CONFIG[3]);
         } else {
-            packet[base] = CONFIG[9];
-            packet[base + 1] = (uint8_t)~CONFIG[30];
+            packet[3] = CONFIG[9];
+            packet[4] = (uint8_t)~CONFIG[30];
         }
         return;
     }
-    uint8_t setting = packet[base];
+    uint8_t setting = packet[3];
     if (value == 0) {
-        if (legacy) {
-            if (setting <= 192) {
-                unsigned level = ((unsigned)setting + 20u) / 21u;
-                CONFIG[2] = (uint8_t)(level > 9 ? 9 : level);
-            }
-        } else {
-            if (setting > 8) {
-                packet[base] = setting = 9;
-            }
-            CONFIG[2] = setting;
+        if (setting > 8) {
+            packet[3] = setting = 9;
         }
+        CONFIG[2] = setting;
     } else if (value == 1) {
         uint8_t before = CONFIG[1];
         if (setting > 18) {
@@ -125,14 +107,12 @@ static void rgb(uint8_t *packet, uint8_t write)
             cdb_rgb_changed();
         }
     } else if (value == 2) {
-        CONFIG[3] = (uint8_t)((legacy ? 3u : 4u) - setting);
+        CONFIG[3] = (uint8_t)(4u - setting);
     } else {
-        if (!legacy) {
-            CONFIG[5] = 0;
-        }
+        CONFIG[5] = 0;
         CONFIG[9] = setting;
         copy(CONFIG + 6, cdb_palette + (unsigned)setting * 3u, 3);
-        CONFIG[30] = (uint8_t)~packet[base + 1];
+        CONFIG[30] = (uint8_t)~packet[4];
     }
 }
 
@@ -189,20 +169,22 @@ void cdb_via_packet(uint8_t packet[32])
         packet[1] = 2;
         packet[2] = 0;
         break;
-    case 14:
+    case 14: {
+        uint16_t mslot = MACRO_SLOT;
         offset = be16(packet + 1);
         size = packet[3];
         /* The app's last request is 28 bytes at offset 504, past the 512-byte
          * buffer; the OEM serves it, so only refuse what cannot leave the
          * 4 KiB macro sector (slot <= 0xC00, offset <= 512, size <= 28). */
         if (offset > CM_BANK_BYTES || size > 28 ||
-            MACRO_SLOT > 0xc00 || (MACRO_SLOT & 0x1ffu) != 0) {
+            mslot > 0xc00 || (mslot & 0x1ffu) != 0) {
             goto invalid;
         }
         if (size != 0) {
-            cdb_flash_read(OEM_MACRO_FLASH_BASE + MACRO_SLOT + offset, size, packet + 4);
+            cdb_flash_read(OEM_MACRO_FLASH_BASE + mslot + offset, size, packet + 4);
         }
         break;
+    }
     case 15:
         cdb_macro_chunk(packet);
         break;

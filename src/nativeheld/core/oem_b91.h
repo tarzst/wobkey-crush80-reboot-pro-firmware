@@ -19,6 +19,12 @@
 #define OEM_GP_BYTE(offset)       OEM_BYTE_AT(OEM_GP_ADDR + (uintptr_t)(offset))
 #define OEM_GP_HALF(offset)       OEM_HALF_AT(OEM_GP_ADDR + (uintptr_t)(offset))
 #define OEM_TIMER_TICK_REG        0x80140200u /* 16 MHz system timer tick counter */
+#define OEM_WD_CTRL2_REG          0x80140142u /* reg_tmr_ctrl2: bit 7 (0x80) = FLD_TMR_WD_EN */
+#define OEM_WD_STATUS_REG         0x80140143u /* reg_tmr_sta: 0x0C clears WD status & counter */
+#define OEM_WD_TARGET_REG         0x8014014cu /* reg_wt_target: 32-bit PCLK cycle target */
+#define OEM_WD_ENABLE_BIT         0x80u
+#define OEM_WD_CLEAR_MASK         0x0cu
+#define OEM_WD_TARGET_4S          0x0b700000u /* ~4.0 s at 48 MHz PCLK ((732 << 18)) */
 
 /* DLM SRAM offsets relative to GP (0x80800). */
 enum {

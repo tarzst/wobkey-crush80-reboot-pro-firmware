@@ -5,11 +5,13 @@
 Воспроизводимые патчи для **WOBKEY Crush 80 Reboot Pro RGB** на основе
 официальной прошивки WOBLAB от 2026-06-18, USB-версия **0108**.
 
-Текущая версия — [**NativeHeld preview — v1.1.0-nativeheld-preview.2**](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2).
-Она дополняет исправление macOS-слоёв нативными сочетаниями с удержанием и
-прозрачными клавишами Fn-слоя, заменяет обработку VIA-команд и макросов,
-исключает лишние перезаписи Flash при загрузке неизменённой раскладки в VIA и
-включает полную проверку в эмуляторе RV32IMC (`rc2emu`).
+Текущая версия — [**NativeHeld — v1.2.0**](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.2.0).
+Она добавляет полную поддержку слоёв QMK/VIA (`MO`, `TG`, `TO`, `DF`, `OSL`,
+`TT`, `FN_MO13`/`FN_MO23` Tri-Layer, сквозной `KC_TRNS`), Tap-Hold клавиш
+(`MT(mod, kc)` и `LT(layer, kc)`), One-Shot модификаторов (`OSM`), `LM(layer, mod)`,
+`KC_GESC`, нативных сочетаний с удержанием (`QK_MODS`), а также включает
+аппаратный сторожевой таймер (Watchdog ~4.0 с) и исключает лишние перезаписи
+Flash при загрузке раскладки в VIA.
 
 **Экспериментальная версия, проверенная на одной клавиатуре. Это не полный порт QMK.**
 Перед использованием прочитайте [границы проверки и ограничения](docs/NATIVEHELD.md).
@@ -20,25 +22,37 @@
 поверх назначений VIA. Патчи позволяют управлять результатом через раскладку:
 
 - Windows использует слои **0/1**, macOS — **2/3**, включая пользовательский F-ряд.
-- `KC_TRNS` на Fn-слое 1 или 3 наследует назначение базового слоя 0 или 2.
+- Сквозной `KC_TRNS` ищет назначение сверху вниз по всем активным слоям
+  (`3 -> 2 -> 1 -> 0`) вплоть до базы текущей ОС (`0` для Win, `2` для Mac или `DF`).
+- Полный набор операторов слоёв QMK/VIA: `MO`, `TG`, `TO`, `DF`, `OSL`
+  (One-Shot Layer), `TT` (Tap-Toggle), `LM(layer, mod)` и `FN_MO13` / `FN_MO23` Tri-Layer.
+- Tap-Hold клавиши `MT(mod, kc)` (`0x2000..0x3FFF`) и `LT(layer, kc)`
+  (`0x4000..0x43FF`) с порогом 200 мс и политикой `HOLD_ON_OTHER_KEY_PRESS`.
+- One-Shot модификаторы `OSM(mod)` (`0x52A0..0x52BF`) с накоплением цепочки и
+  переходом в обычное удержание, а также `KC_GESC` (`0x7C16`: `Esc` обычно,
+  `~` / `` ` `` при `Shift` / `GUI`).
 - Нативные сочетания `QK_MODS` удерживают модификаторы и основную клавишу до
   отпускания физической кнопки. Если отпустить Fn первым, отпускается именно
   действие, выбранное при нажатии.
 - Общий модификатор или код клавиши остаётся нажатым, пока его использует хотя
   бы одна удерживаемая кнопка или другое активное действие.
+- Включён и обслуживается на каждой итерации главного цикла аппаратный Watchdog
+  Telink B91 (`0x8014014C = 0x0B700000` ~4.0 с, `0x80140142 = 0x80`), а также
+  устранён заводской конфликт бита `gp+804 & 0x20` между `MO(1)` и сохранением
+  настроек RGB в сектор Flash `0x8A000`.
 - Поддерживаются VIA keymap, энкодер, RGB и 16 слотов макросов. Заменённый
   обработчик исправляет чтение конца буфера макросов в usevia.app и сохраняет
   байт 511 при записи.
 
 В проверенной Mac-раскладке используются Shift+GUI+5, Ctrl+GUI+Q, GUI+Q,
-Ctrl+Up и GUI+Space. MT/LT, One-Shot и произвольные сочетания левых и правых
-модификаторов не реализованы.
+Ctrl+Up и GUI+Space, а также `MT`, `LT`, `OSL` и `OSM`.
 
 ## Какую версию выбрать
 
 | Версия | Возможности |
 |---|---|
-| [NativeHeld preview](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2) | Текущая экспериментальная сборка: macOS-слои, прозрачные клавиши Fn-слоя, сочетания с удержанием, заменённые обработчики VIA и макросов без холостых записей во Flash. |
+| [NativeHeld v1.2.0](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.2.0) | Текущий релиз: macOS-слои, полный стек слоёв QMK/VIA (`MO`/`TG`/`TO`/`DF`/`OSL`/`TT`/`LM`/Tri-Layer/`KC_TRNS`), `MT`/`LT` Tap-Hold, `OSM`, `KC_GESC`, `QK_MODS`, заменённые обработчики VIA/макросов и аппаратный Watchdog. |
+| [NativeHeld preview](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.1.0-nativeheld-preview.2) | Предыдущая сборка: macOS-слои, прозрачные клавиши Fn-слоя, сочетания `QK_MODS` и заменённые обработчики VIA/макросов. |
 | [RC2](https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware/releases/tag/v1.0.0-rc2) | Предыдущее исправление macOS-слоёв и F-ряда. Сохраняет штатный обработчик VIA; нативных `QK_MODS` и `KC_TRNS` нет. |
 
 К релизу NativeHeld приложены прошиваемый `.bin`, эталонный `.elf` с кодом
@@ -55,7 +69,7 @@ Ctrl+Up и GUI+Space. MT/LT, One-Shot и произвольные сочетан
 2. Скачайте и распакуйте архив исходников из релиза NativeHeld либо клонируйте тег:
 
    ```bash
-   git clone --branch v1.1.0-nativeheld-preview.2 --depth 1 \
+   git clone --branch v1.2.0 --depth 1 \
      https://github.com/tarzst/wobkey-crush80-reboot-pro-firmware.git
    cd wobkey-crush80-reboot-pro-firmware
    ```
@@ -69,11 +83,11 @@ Ctrl+Up и GUI+Space. MT/LT, One-Shot и произвольные сочетан
    ```bash
    python3 tools/crush80.py info
    python3 tools/crush80.py flash \
-     firmware/patched/Crush80-RGB-0108-NativeHeld-20261031.bin --yes
+     firmware/patched/Crush80-RGB-0108-NativeHeld-20261101.bin --yes
    ```
 
 Прошиватор проверяет точный хеш образа и разрешённый исходный CRC, ждёт
-подтверждения OTA и после перезапуска проверяет CRC **239d8875** на новом
+подтверждения OTA и после перезапуска проверяет CRC **13dadb12** на новом
 соединении. Неизвестные образы и исходные версии отклоняются. Список переходов
 и границы их аппаратной проверки описаны в [политике прошивки](docs/NATIVEHELD.md#flasher-policy).
 После обновления восстановите настройки и проверьте назначения после переподключения.

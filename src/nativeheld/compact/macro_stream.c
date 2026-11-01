@@ -12,45 +12,51 @@ static int reading(uint8_t phase)
     return phase >= CM_SEEK && phase <= CM_DELAY;
 }
 
+__attribute__((noinline)) void cdb_memzero(volatile void *ptr, unsigned len)
+{
+    volatile uint8_t *p = (volatile uint8_t *)ptr;
+    while (len--) {
+        *p++ = 0;
+    }
+}
+
 static void reset_engine(cm_engine *engine, uint32_t generation)
 {
-    uint8_t *bytes = (uint8_t *)engine;
-    for (unsigned i = 0; i < sizeof(*engine); ++i) {
-        bytes[i] = 0;
-    }
+    cdb_memzero(engine, sizeof(*engine));
     engine->generation = generation;
     engine->pending_id = NO_PENDING;
 }
 
-vck_result cm_init(cm_memory *memory)
+__attribute__((noinline)) vck_result cm_init(cm_memory *memory)
 {
-    if (memory == NULL) {
-        return VCK_INVALID;
-    }
-    (void)cch_reset(&memory->owners, 0);
-    reset_engine(&memory->engine, 1);
-    /* Invalid cache bytes are never read until a complete fill is accepted. */
+    cdb_memzero(memory, sizeof(*memory));
+    memory->engine.generation = 1;
+    memory->engine.pending_id = NO_PENDING;
     return VCK_OK;
 }
 
 vck_result cm_reset(cm_memory *memory, uint8_t preserve_stock)
 {
-    if (memory == NULL || preserve_stock > 1) {
-        return VCK_INVALID;
-    }
     uint32_t generation = memory->engine.generation + 1;
     uint8_t binding_active = memory->engine.binding_active;
-    (void)cch_reset(&memory->owners, preserve_stock);
-    reset_engine(&memory->engine, generation);
+    if (!preserve_stock) {
+        uint8_t toggle = memory->layers.toggle_mask;
+        uint8_t kept_flags = (uint8_t)(memory->layers.flags & (CL_FLAG_DF_MASK | CL_FLAG_DF_OVERRIDE | CL_FLAG_LAST_MAC));
+        (void)cm_init(memory);
+        memory->layers.toggle_mask = toggle;
+        memory->layers.flags = kept_flags;
+    } else {
+        (void)cch_reset(&memory->owners, 1);
+        reset_engine(&memory->engine, generation);
+        memory->layers.pending_state = CTH_IDLE;
+    }
+    memory->engine.generation = generation;
     memory->engine.binding_active = binding_active;
     return VCK_OK;
 }
 
 vck_result cm_cancel(cm_memory *memory)
 {
-    if (memory == NULL) {
-        return VCK_INVALID;
-    }
     cm_engine *engine = &memory->engine;
     ++engine->generation;
     engine->phase = CM_CANCEL;
@@ -62,26 +68,22 @@ vck_result cm_cancel(cm_memory *memory)
     return VCK_OK;
 }
 
-static void begin(cm_engine *engine, uint8_t id, uint16_t slot)
+static void begin(cm_memory *memory, uint8_t id, uint16_t slot)
 {
-    ++engine->generation;
-    engine->phase = CM_SEEK;
-    engine->skip = id;
-    engine->slot = slot;
-    engine->cursor = 0;
-    engine->cache_valid = 0;
-    engine->flags = 0;
-    engine->error = VCK_OK;
-    engine->pending_id = NO_PENDING;
+    (void)cm_cancel(memory);
+    memory->engine.phase = CM_SEEK;
+    memory->engine.skip = id;
+    memory->engine.slot = slot;
+    memory->engine.error = VCK_OK;
 }
 
 vck_result cm_start(cm_memory *memory, uint8_t id, uint16_t slot)
 {
-    if (memory == NULL || id >= CM_MACROS || !valid_slot(slot)) {
+    if (id >= CM_MACROS || !valid_slot(slot)) {
         return VCK_INVALID;
     }
     if (memory->engine.phase == CM_IDLE) {
-        begin(&memory->engine, id, slot);
+        begin(memory, id, slot);
     } else {
         (void)cm_cancel(memory);
         memory->engine.pending_id = id;
@@ -145,22 +147,30 @@ static uint16_t ascii_action(uint8_t ascii)
     return 0;
 }
 
+static __attribute__((noinline)) int macro_emit(cm_memory *memory, const ccd_writer *writer, uint8_t down, uint8_t mod, uint8_t usage)
+{
+    vck_result result = ccd_macro_action(&memory->owners, writer, down, (vck_action){mod, usage});
+    if (result != VCK_OK) {
+        return fail(memory, result);
+    }
+    return CM_STEP_PROGRESS;
+}
+
 static int apply(cm_memory *memory, const ccd_writer *writer, uint32_t now,
-                   vck_action action, uint8_t opcode)
+                 uint8_t mod, uint8_t usage, uint8_t opcode)
 {
     uint16_t release = 0;
     if (opcode == 1) {
-        release = (uint16_t)((uint16_t)(action.modifiers & (uint8_t)~memory->owners.macro[0]) << 8);
-        if (action.usage != 0) {
-            unsigned bit = 8u + action.usage - VCK_USAGE_MIN;
+        release = (uint16_t)((uint16_t)(mod & (uint8_t)~memory->owners.macro[0]) << 8);
+        if (usage != 0) {
+            unsigned bit = 8u + usage - VCK_USAGE_MIN;
             if ((memory->owners.macro[bit / 8] & (1u << (bit % 8))) == 0) {
-                release = (uint16_t)(release | action.usage);
+                release = (uint16_t)(release | usage);
             }
         }
     }
-    vck_result result = ccd_macro_action(&memory->owners, writer, (uint8_t)(opcode != 3), action);
-    if (result != VCK_OK) {
-        return fail(memory, result);
+    if (macro_emit(memory, writer, (uint8_t)(opcode != 3), mod, usage) < 0) {
+        return CM_STEP_FAILED;
     }
     cm_engine *engine = &memory->engine;
     engine->tap_release = release;
@@ -171,28 +181,18 @@ static int apply(cm_memory *memory, const ccd_writer *writer, uint32_t now,
 
 int cm_step(cm_memory *memory, const ccd_writer *writer, uint32_t now)
 {
-    if (memory == NULL || writer == NULL) {
-        return CM_STEP_FAILED;
-    }
     cm_engine *engine = &memory->engine;
     if (engine->phase == CM_CANCEL) {
         while (engine->cursor < CCH_MACRO_BITS) {
-            unsigned index = engine->cursor;
+            unsigned index = engine->cursor++;
             if ((memory->owners.macro[index / 8] & (1u << (index % 8))) != 0) {
-                vck_action action = index < 8 ? (vck_action){(uint8_t)(1u << index), 0} :
-                                    (vck_action){0, (uint8_t)(index - 8 + VCK_USAGE_MIN)};
-                vck_result result = ccd_macro_action(&memory->owners, writer, 0, action);
-                if (result != VCK_OK) {
-                    engine->error = (uint8_t)result;
-                    return CM_STEP_FAILED;
-                }
-                ++engine->cursor;
-                return CM_STEP_PROGRESS;
+                uint8_t mod = index < 8 ? (uint8_t)(1u << index) : 0;
+                uint8_t usage = index < 8 ? 0 : (uint8_t)(index - 8 + VCK_USAGE_MIN);
+                return macro_emit(memory, writer, 0, mod, usage);
             }
-            ++engine->cursor;
         }
         if (engine->pending_id != NO_PENDING) {
-            begin(engine, engine->pending_id, engine->pending_slot);
+            begin(memory, engine->pending_id, engine->pending_slot);
             return CM_STEP_PROGRESS;
         }
         engine->phase = CM_IDLE;
@@ -212,10 +212,8 @@ int cm_step(cm_memory *memory, const ccd_writer *writer, uint32_t now)
     }
     if (engine->phase == CM_RELEASE) {
         uint16_t packed = engine->tap_release;
-        vck_result result = ccd_macro_action(&memory->owners, writer, 0,
-                                            (vck_action){(uint8_t)(packed >> 8), (uint8_t)packed});
-        if (result != VCK_OK) {
-            return fail(memory, result);
+        if (macro_emit(memory, writer, 0, (uint8_t)(packed >> 8), (uint8_t)packed) < 0) {
+            return CM_STEP_FAILED;
         }
         engine->tap_release = 0;
         engine->phase = CM_RUN;
@@ -251,7 +249,7 @@ int cm_step(cm_memory *memory, const ccd_writer *writer, uint32_t now)
             if (packed == 0) {
                 return fail(memory, VCK_UNSUPPORTED);
             }
-            return apply(memory, writer, now, (vck_action){(uint8_t)(packed >> 8), (uint8_t)packed}, 1);
+            return apply(memory, writer, now, (uint8_t)(packed >> 8), (uint8_t)packed, 1);
         }
     } else if (engine->phase == CM_PREFIX) {
         if (byte >= 1 && byte <= 3) {
@@ -265,11 +263,12 @@ int cm_step(cm_memory *memory, const ccd_writer *writer, uint32_t now)
             return fail(memory, VCK_UNSUPPORTED);
         }
     } else if (engine->phase == CM_OPERAND) {
-        vck_action action;
-        if (byte == 0 || cch_decode(byte, &action) != VCK_OK) {
+        uint8_t mod = (byte >= 0xe0u && byte <= 0xe7u) ? (uint8_t)(1u << (byte - 0xe0u)) : 0u;
+        uint8_t usage = (byte >= VCK_USAGE_MIN && byte <= VCK_USAGE_MAX) ? byte : 0u;
+        if ((mod | usage) == 0u) {
             return fail(memory, VCK_UNSUPPORTED);
         }
-        return apply(memory, writer, now, action, engine->opcode);
+        return apply(memory, writer, now, mod, usage, engine->opcode);
     } else {
         if (byte >= '0' && byte <= '9') {
             uint32_t value = (uint32_t)engine->delay_value * 10 + byte - '0';
@@ -290,29 +289,16 @@ int cm_step(cm_memory *memory, const ccd_writer *writer, uint32_t now)
 
 vck_result cm_prepare_read(cm_memory *memory, cm_read *out)
 {
-    if (memory == NULL || out == NULL || !reading(memory->engine.phase) ||
-        memory->engine.cursor >= CM_BANK_BYTES || !valid_slot(memory->engine.slot)) {
-        return VCK_INVALID;
-    }
     cm_engine *engine = &memory->engine;
-    uint16_t offset = (uint16_t)(engine->cursor & ~(CM_CACHE_BYTES - 1u));
-    if (engine->cache_valid && engine->cache_line == offset) {
-        return VCK_INVALID;
-    }
-    *out = (cm_read){engine->generation, engine->slot, offset};
+    *out = (cm_read){engine->generation, engine->slot, (uint16_t)(engine->cursor & ~(CM_CACHE_BYTES - 1u))};
     engine->cache_valid = 0;
     return VCK_OK;
 }
 
 vck_result cm_finish_read(cm_memory *memory, const cm_read *request, uint8_t success)
 {
-    if (memory == NULL || request == NULL || success > 1) {
-        return VCK_INVALID;
-    }
     cm_engine *engine = &memory->engine;
-    if (!reading(engine->phase) || request->generation != engine->generation ||
-        request->slot != engine->slot || engine->cursor >= CM_BANK_BYTES ||
-        request->offset != (engine->cursor & ~(CM_CACHE_BYTES - 1u)) || !valid_slot(request->slot)) {
+    if (!reading(engine->phase) || request->generation != engine->generation) {
         return VCK_INVALID;
     }
     if (!success) {

@@ -14,7 +14,7 @@
 #define UPLOAD       OEM_GP_HALF(OEM_MACRO_UPLOAD_OFFSET)
 #define STAGING      ((uint8_t *)(uintptr_t)(OEM_GP_ADDR + OEM_STAGING_OFFSET))
 
-static int enabled(void)
+__attribute__((always_inline)) static inline int enabled(void)
 {
     return *READY > 7 && (*STATUS & 0x40u) == 0;
 }
@@ -28,17 +28,15 @@ static void emit(void *context, uint8_t modifiers, uint8_t usage, uint8_t down)
     *PRESSED = before;
 }
 
-static ccd_writer writer(void)
-{
-    return (ccd_writer){BASIC, BITMAP, emit, NULL, (uint8_t)(*OEM_GP_BYTE(OEM_NKRO_OFFSET) != 0)};
-}
+static const ccd_writer cdb_writer = {
+    (const volatile uint8_t *)(uintptr_t)(OEM_GP_ADDR + OEM_BASIC_OFFSET),
+    (const volatile uint8_t *)(uintptr_t)(OEM_GP_ADDR + OEM_BITMAP_OFFSET),
+    emit,
+    NULL,
+    (const volatile uint8_t *)(uintptr_t)(OEM_GP_ADDR + OEM_NKRO_OFFSET)
+};
 
-static void clear(volatile uint8_t *bytes, unsigned length)
-{
-    for (unsigned i = 0; i < length; ++i) {
-        bytes[i] = 0;
-    }
-}
+#define clear(bytes, length) cdb_memzero((bytes), (length))
 
 static void reset(uint8_t matrix)
 {
@@ -54,42 +52,220 @@ static void reset(uint8_t matrix)
     *OEM_GP_HALF(OEM_MACRO_TIMER_OFFSET) = 0;
 }
 
+__attribute__((always_inline)) static inline uint8_t effective_base_layer(void)
+{
+    cl_state *layers = &cdb_workspace.layers;
+    uint8_t cur_mac = *OEM_GP_BYTE(OEM_CONFIG_OFFSET + 26) ? CL_FLAG_LAST_MAC : 0u;
+    if ((layers->flags & CL_FLAG_LAST_MAC) != cur_mac) {
+        layers->flags = (uint8_t)((layers->flags & ~(CL_FLAG_LAST_MAC | CL_FLAG_DF_OVERRIDE)) | cur_mac);
+    }
+    return ((layers->flags & CL_FLAG_DF_OVERRIDE) != 0)
+        ? (uint8_t)(layers->flags & CL_FLAG_DF_MASK)
+        : (cur_mac ? 2u : 0u);
+}
+
+static void check_pending(uint32_t now, uint8_t force)
+{
+    cl_state *layers = &cdb_workspace.layers;
+    uint8_t st = layers->pending_state;
+    if (st != CTH_IDLE &&
+        (force || (int16_t)((uint16_t)(now >> 8) - layers->pending_deadline) >= 0)) {
+        uint8_t arg = layers->pending_arg;
+        cch_event ev;
+        layers->pending_state = CTH_IDLE;
+        uint16_t code = (st == CTH_PENDING_MT) ? (uint16_t)((uint16_t)arg << 8) : (uint16_t)(0x5220u | arg);
+        if (st == CTH_PENDING_LT) {
+            layers->hold_count[arg]++;
+        }
+        (void)ccd_physical(&cdb_workspace.owners, &cdb_writer, layers->pending_pos, 1, code, &ev);
+    }
+}
+
+static void pulse_key(uint16_t position, uint16_t code, uint32_t saved)
+{
+    cch_event ev;
+    vck_result result = ccd_physical(&cdb_workspace.owners, &cdb_writer, position, 1, code, &ev);
+    vci_leave(saved);
+    if (result == VCK_OK && ev.route == CCH_KEYBOARD) {
+        cdb_oem_send();
+        saved = vci_enter();
+        if (enabled()) {
+            (void)ccd_physical(&cdb_workspace.owners, &cdb_writer, position, 0, 0, &ev);
+        }
+        *PRESSED = 0;
+        vci_leave(saved);
+        cdb_oem_send();
+    }
+}
+
 int cdb_physical(cdb_frame *frame, uint32_t position)
 {
     uint32_t saved = vci_enter();
-    if (!enabled() || position >= CCH_POSITIONS || (*PRESSED != 0 && *PRESSED != 0xff)) {
+    uint8_t raw_down = *PRESSED;
+    if (!enabled() || position >= CCH_POSITIONS || (raw_down != 0 && raw_down != 0xff)) {
         vci_leave(saved);
         return 0;
     }
-    ccd_writer output = writer();
-    cch_event event;
-    vck_result result = ccd_physical(&cdb_workspace.owners, &output, (uint16_t)position,
-                                    (uint8_t)(*PRESSED != 0), (uint16_t)frame->a[3], &event);
-    if (result != VCK_OK || event.route != CCH_STOCK || event.code <= 3) {
+    uint8_t down = (uint8_t)(raw_down != 0);
+    if (down && (cdb_workspace.owners.active[position / 8u] & (uint8_t)(1u << (position % 8u))) != 0) {
         vci_leave(saved);
         return 0;
     }
-    if (event.code >= 0x82 && event.code <= 0x84) {
-        uint8_t usage = event.code == 0x82 ? 0x39 : event.code == 0x83 ? 0x53 : 0x47;
-        result = ccd_synthetic(&cdb_workspace.owners, &output,
-                               (uint16_t)(VCSYN_BUILTIN_BASE + position), 1, (vck_action){0, usage});
-        vci_leave(saved);
-        if (result == VCK_OK) {
-            cdb_oem_send();
-            saved = vci_enter();
-            if (enabled()) {
-                output = writer();
-                (void)ccd_synthetic(&cdb_workspace.owners, &output,
-                                    (uint16_t)(VCSYN_BUILTIN_BASE + position), 0, (vck_action){0, usage});
+    uint32_t now = *OEM_WORD_AT(OEM_TIMER_TICK_REG);
+    cl_state *layers = &cdb_workspace.layers;
+    check_pending(now, down);
+    uint8_t base = effective_base_layer();
+
+    uint16_t code = 0;
+    if (!down) {
+        if (layers->pending_state != CTH_IDLE && layers->pending_pos == (uint8_t)position) {
+            uint16_t tap_kc = (uint16_t)(layers->pending_tap_kc | ((uint16_t)layers->oneshot_mod << 8));
+            layers->oneshot_mod = 0u;
+            layers->pending_state = CTH_IDLE;
+            if ((uint8_t)tap_kc != 0) {
+                pulse_key((uint16_t)position, tap_kc, saved);
+                return 0;
             }
-            *PRESSED = 0; /* Same final pulse flag as the OEM locking path. */
             vci_leave(saved);
-            cdb_oem_send();
+            return 0;
         }
+        if (layers->lm_layer != 0 && layers->lm_pos == (uint8_t)position) {
+            uint8_t l = (uint8_t)(layers->lm_layer - 1u);
+            if (layers->hold_count[l] != 0) {
+                layers->hold_count[l]--;
+            }
+            layers->lm_layer = 0u;
+        }
+        if (layers->osm_mod != 0 && layers->osm_pos == (uint8_t)position) {
+            if ((layers->flags & CL_FLAG_MOMENTARY_USED) == 0) {
+                layers->oneshot_mod = (((layers->oneshot_mod ^ layers->osm_mod) & 0x10u) != 0)
+                    ? layers->osm_mod
+                    : (uint8_t)(layers->oneshot_mod | layers->osm_mod);
+            }
+            layers->osm_mod = 0u;
+        }
+    } else {
+        uint8_t layer_mask = (uint8_t)(layers->toggle_mask | layers->oneshot_mask | (1u << base) | 1u);
+        for (unsigned l = 0; l < VCK_LAYERS; ++l) {
+            if (layers->hold_count[l] != 0) {
+                layer_mask |= (uint8_t)(1u << l);
+            }
+        }
+        if (layers->tri_count != 0 && (layer_mask & 6u) == 6u) {
+            layer_mask |= 8u;
+        }
+        uint32_t seq = 0x01bu | ((uint32_t)base << 8);
+        const volatile uint8_t *keymap = OEM_BYTE_AT(OEM_GP_ADDR - OEM_KEYMAP_NEG_OFFSET) + (position << 1);
+        for (unsigned step = 0; step < 6u; ++step, seq >>= 2) {
+            unsigned layer = seq & 3u;
+            if ((layer_mask & (1u << layer)) != 0) {
+                uint16_t c = (uint16_t)(((uint16_t)keymap[layer << 8] << 8) | keymap[(layer << 8) + 1u]);
+                if (c != 0x0001u) {
+                    code = c;
+                    break;
+                }
+            }
+        }
+        uint8_t hi = (uint8_t)(code >> 8);
+        uint8_t lo = (uint8_t)code;
+        if ((code & 0xFFFEu) == 0x5F10u || (code & 0xFFFEu) == 0x7700u) {
+            code = (uint16_t)(0x52E1u + (lo & 1u));
+            hi = 0x52u;
+        } else if ((code & 0xFFE0u) == 0x52A0u) {
+            layers->osm_pos = (uint8_t)position;
+            layers->osm_mod = (uint8_t)(lo & 0x1Fu);
+            layers->flags &= (uint8_t)~CL_FLAG_MOMENTARY_USED;
+            code = (uint16_t)((uint16_t)layers->osm_mod << 8);
+        } else if ((code & 0xFF80u) == 0x5000u && (lo & 0x0Fu) != 0) {
+            uint8_t l = (uint8_t)((lo >> 5) & 3u);
+            layers->hold_count[l]++;
+            layers->lm_pos = (uint8_t)position;
+            layers->lm_layer = (uint8_t)(l + 1u);
+            code = (uint16_t)((uint16_t)(lo & 0x1Fu) << 8);
+            hi = 0x52u;
+        } else if (code == 0x7C16u || code == 0x5C16u) {
+            code = (((BASIC[0] & 0xAAu) | (layers->oneshot_mod & 0x0Au)) != 0u) ? 0x35u : 0x29u;
+            hi = 0u;
+        }
+        if (hi != 0x52u) {
+            layers->oneshot_mask = 0u;
+            layers->flags |= CL_FLAG_MOMENTARY_USED;
+            if (code >= 0x2000u && code <= 0x4FFFu) {
+                if (code < 0x4400u) {
+                    uint8_t is_lt = (code >= 0x4000u);
+                    uint8_t arg = (uint8_t)(hi & (is_lt ? 3u : 0x1Fu));
+                    layers->pending_state = is_lt ? CTH_PENDING_LT : CTH_PENDING_MT;
+                    layers->pending_pos = (uint8_t)position;
+                    layers->pending_arg = (!is_lt && (arg & 0x0Fu) == 0) ? 1u : arg;
+                    layers->pending_tap_kc = lo;
+                    layers->pending_deadline = (uint16_t)((uint16_t)(now >> 8) + CTH_TAPPING_TERM_TICKS);
+                }
+                vci_leave(saved);
+                return 0;
+            }
+            if (layers->oneshot_mod != 0 && code <= 0x1FFFu) {
+                code = (uint16_t)(code | ((uint16_t)layers->oneshot_mod << 8));
+                layers->oneshot_mod = 0u;
+            }
+        }
+    }
+
+    cch_event ev;
+    if (ccd_physical(&cdb_workspace.owners, &cdb_writer, (uint16_t)position, down, code, &ev) != VCK_OK ||
+        ev.route != CCH_STOCK || ev.code <= 3) {
+        vci_leave(saved);
         return 0;
     }
-    frame->a[1] = (uint8_t)event.code;
-    frame->a[3] = event.code;
+    uint8_t hi = (uint8_t)(ev.code >> 8);
+    uint8_t lo = (uint8_t)ev.code;
+    if (hi == 0x52u) {
+        uint8_t l_arg = (uint8_t)(lo & 0x1Fu);
+        uint8_t kind = (uint8_t)(lo & 0xE0u);
+        if (l_arg < VCK_LAYERS) {
+            uint8_t bit = (uint8_t)(1u << l_arg);
+            if (down) {
+                if (kind == 0x00u) {
+                    layers->toggle_mask = (l_arg == base) ? 0u : bit;
+                    layers->oneshot_mask = 0u;
+                } else if (kind == 0x40u) {
+                    layers->flags = (uint8_t)((layers->flags & ~CL_FLAG_DF_MASK) | l_arg | CL_FLAG_DF_OVERRIDE);
+                } else if (kind == 0x60u) {
+                    layers->toggle_mask ^= bit;
+                } else if (kind == 0x20u || kind >= 0x80u) {
+                    layers->hold_count[l_arg]++;
+                    layers->flags &= (uint8_t)~CL_FLAG_MOMENTARY_USED;
+                    if (kind == 0x80u) {
+                        layers->oneshot_mask |= bit;
+                    } else if (kind == 0xE0u) {
+                        layers->tri_count++;
+                    }
+                }
+            } else if (kind == 0x20u || kind >= 0x80u) {
+                if (layers->hold_count[l_arg] != 0) {
+                    layers->hold_count[l_arg]--;
+                }
+                if (kind == 0x80u && (layers->flags & CL_FLAG_MOMENTARY_USED) != 0) {
+                    layers->oneshot_mask &= (uint8_t)~bit;
+                } else if (kind == 0xC0u && (layers->flags & CL_FLAG_MOMENTARY_USED) == 0) {
+                    layers->toggle_mask ^= bit;
+                } else if (kind == 0xE0u && layers->tri_count != 0) {
+                    layers->tri_count--;
+                }
+            }
+        }
+        vci_leave(saved);
+        return 0;
+    }
+    if (ev.code >= 0x82u && ev.code <= 0x84u) {
+        if (down) {
+            pulse_key((uint16_t)position, (lo == 0x82u) ? 0x39u : (lo == 0x83u) ? 0x53u : 0x47u, saved);
+            return 0;
+        }
+        vci_leave(saved);
+        return 0;
+    }
+    frame->a[1] = lo;
+    frame->a[3] = ev.code;
     vci_leave(saved);
     return 1;
 }
@@ -106,8 +282,7 @@ void cdb_synthetic(cdb_frame *frame)
         frame->a[0] <= 255 && frame->a[1] <= 255 && (frame->ra >> 16) == 0x2001) {
         for (unsigned i = 0; i < sizeof(callers) / sizeof(callers[0]); ++i) {
             if ((uint16_t)frame->ra == callers[i]) {
-                ccd_writer output = writer();
-                (void)ccd_synthetic(&cdb_workspace.owners, &output,
+                (void)ccd_synthetic(&cdb_workspace.owners, &cdb_writer,
                                     (uint16_t)(VCSYN_BUILTIN_BASE + position), (uint8_t)(down != 0),
                                     (vck_action){(uint8_t)frame->a[0], (uint8_t)frame->a[1]});
                 break;
@@ -165,6 +340,9 @@ void cdb_reset_finish(cdb_frame *frame, uint32_t s1, uint32_t s0)
 
 static void take_macro_request(void)
 {
+    *OEM_WORD_AT(OEM_WD_TARGET_REG) = OEM_WD_TARGET_4S;
+    *OEM_BYTE_AT(OEM_WD_CTRL2_REG) = OEM_WD_ENABLE_BIT;
+    *OEM_BYTE_AT(OEM_WD_STATUS_REG) = OEM_WD_CLEAR_MASK;
     if ((*MACRO_FLAGS & 4u) != 0) {
         uint8_t id = *OEM_GP_BYTE(OEM_MACRO_ID_OFFSET);
         *MACRO_FLAGS &= (uint8_t)~4u;
@@ -186,9 +364,9 @@ void cdb_macro_poll(void)
      * Cold cm_init is quiescent and clears the field before READY becomes 8. */
     cdb_workspace.engine.binding_active = 1;
     take_macro_request();
-    ccd_writer output = writer();
     uint32_t now = *OEM_WORD_AT(OEM_TIMER_TICK_REG);
-    int step = cm_step(&cdb_workspace, &output, now);
+    check_pending(now, 0);
+    int step = cm_step(&cdb_workspace, &cdb_writer, now);
     cm_read request;
     if (step == CM_STEP_READ && cm_prepare_read(&cdb_workspace, &request) == VCK_OK) {
         vci_leave(saved);
@@ -199,11 +377,10 @@ void cdb_macro_poll(void)
          * Cancel that old generation before considering its completion. */
         take_macro_request();
         if (cm_finish_read(&cdb_workspace, &request, 1) == VCK_OK && enabled()) {
-            output = writer();
-            (void)cm_step(&cdb_workspace, &output, *OEM_WORD_AT(OEM_TIMER_TICK_REG));
+            (void)cm_step(&cdb_workspace, &cdb_writer, *OEM_WORD_AT(OEM_TIMER_TICK_REG));
         }
     }
-    if (cdb_workspace.engine.phase == CM_IDLE) {
+    if (cdb_workspace.engine.phase == CM_IDLE && cdb_workspace.layers.pending_state == CTH_IDLE) {
         *MACRO_FLAGS &= (uint8_t)~8u;
     } else {
         *MACRO_FLAGS |= 8;
@@ -244,29 +421,24 @@ int cdb_macro_empty(uint32_t address, uint32_t length, const uint8_t *unused)
     if (address != OEM_MACRO_FLASH_BASE || length != CM_BANK_BYTES) {
         return -1;
     }
-    uint8_t zeros[CM_CACHE_BYTES];
-    clear(zeros, CM_CACHE_BYTES);
+    clear(cdb_workspace.cache, CM_CACHE_BYTES);
     /* Caller has erased the sector. Publish journal first word last. */
-    for (unsigned offset = 4; offset < CM_BANK_BYTES; offset += CM_CACHE_BYTES) {
-        unsigned size = CM_BANK_BYTES - offset;
-        if (size > CM_CACHE_BYTES) {
-            size = CM_CACHE_BYTES;
-        }
-        (void)cdb_flash_program(address + offset, size, zeros);
+    for (unsigned offset = CM_CACHE_BYTES; offset < CM_BANK_BYTES; offset += CM_CACHE_BYTES) {
+        (void)cdb_flash_program(address + offset, CM_CACHE_BYTES, cdb_workspace.cache);
     }
-    return cdb_flash_program(address, 4, zeros);
+    (void)cdb_flash_program(address + 4, CM_CACHE_BYTES - 4, cdb_workspace.cache);
+    return cdb_flash_program(address, 4, cdb_workspace.cache);
 }
 
-static int erased_slot(uint16_t slot)
+__attribute__((always_inline)) static inline int erased_slot(uint16_t slot)
 {
     /* A torn body write can leave an erased header over programmed data.
      * NOR permits only 1->0 programming; inspect the whole candidate slot,
      * not just its unpublished header, before reusing it. */
-    uint8_t bytes[CM_CACHE_BYTES];
     for (unsigned offset = 0; offset < CM_BANK_BYTES; offset += CM_CACHE_BYTES) {
-        cdb_flash_read(OEM_MACRO_FLASH_BASE + slot + offset, CM_CACHE_BYTES, bytes);
+        cdb_flash_read(OEM_MACRO_FLASH_BASE + slot + offset, CM_CACHE_BYTES, cdb_workspace.cache);
         for (unsigned i = 0; i < CM_CACHE_BYTES; ++i) {
-            if (bytes[i] != 255) {
+            if (cdb_workspace.cache[i] != 255) {
                 return 0;
             }
         }
@@ -293,25 +465,14 @@ __attribute__((noinline)) void cdb_macro_chunk(uint8_t packet[32])
         return;
     }
     (void)cm_cancel(&cdb_workspace);
-    vci_leave(saved);
-    /* Macro engine is the only macro producer. Physical/builtin IRQ events
-     * remain available between short cancellation steps; flash I/O stays
-     * outside those guards. */
-    do {
-        saved = vci_enter();
-        if (!enabled()) {
+    while (cdb_workspace.engine.phase != CM_IDLE) {
+        if (cm_step(&cdb_workspace, &cdb_writer, 0) == CM_STEP_FAILED) {
             vci_leave(saved);
             packet[0] = 0xff;
             return;
         }
-        ccd_writer output = writer();
-        int step = cm_step(&cdb_workspace, &output, 0);
-        vci_leave(saved);
-        if (step == CM_STEP_FAILED) {
-            packet[0] = 0xff;
-            return;
-        }
-    } while (cdb_workspace.engine.phase != CM_IDLE);
+    }
+    vci_leave(saved);
     if (offset == CM_BANK_BYTES - 1) {
         if (packet[4] != 0) {
             clear(STAGING, CM_BANK_BYTES);
