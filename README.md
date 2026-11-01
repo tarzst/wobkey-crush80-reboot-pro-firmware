@@ -95,6 +95,9 @@ OTA success, then verifies CRC **2f4f4974** on a fresh connection. It refuses
 unknown target images and unlisted source versions. See the
 [transition policy and hardware-testing limits](docs/NATIVEHELD.md#flasher-policy).
 Restore your settings after the update and check your bindings after reconnecting.
+In [usevia.app](https://usevia.app/), load [`via/Crush80-RGB-USB.json`](via/Crush80-RGB-USB.json)
+for wired USB (`0x320F:0x5055`) or [`via/Crush80-RGB-2.4G.json`](via/Crush80-RGB-2.4G.json)
+for the 2.4 GHz receiver (`0x320F:0x5088`) on the **DESIGN** tab (`Use V2 definitions (deprecated)` **OFF**).
 
 For an offline packet check that does not open the keyboard:
 

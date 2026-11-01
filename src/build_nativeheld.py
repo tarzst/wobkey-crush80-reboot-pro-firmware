@@ -351,6 +351,7 @@ def repack_payload(cc, build_dir, rc2):
             'firmware/nativeheld/NativeHeld-20261021.elf',
             'firmware/nativeheld/manifest.json',
             'via/Crush80-RGB-USB.json',
+            'via/Crush80-RGB-2.4G.json',
             'src/build_firmware.py',
             'src/build_nativeheld.py',
             'tools/crush80.py',

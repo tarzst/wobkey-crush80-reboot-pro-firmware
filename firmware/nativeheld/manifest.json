@@ -174,7 +174,7 @@
   ],
   "limitations_document": "docs/NATIVEHELD.md",
   "sources": {
-    "src/build_nativeheld.py": "8e80063cb4a83ceebac0dc5f9d180840248d14922798907093cd1bd357281ace",
+    "src/build_nativeheld.py": "fbe4dd9792306f179414c5b96106a86f1741ba8eed9a9745236cc09b97fc7f0d",
     "src/nativeheld/compact/compact_holds.c": "544c18cae17ea343d258f1e44061fcb70e0325cda6bb17a527818053a96f10ec",
     "src/nativeheld/compact/compact_holds.h": "356f4785b178009b19a9017e79fab0404e59a26af360f847a86694fd0f18f9a9",
     "src/nativeheld/compact/delta_adapter.c": "a34dfce9c34260fa57f6314f8fa982a04d56ffe164a101c84644250e66e980ae",
