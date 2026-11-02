@@ -95,6 +95,18 @@ watchdog clears. It also documented the two matrix scan paths selected by
 `gp+133` (`Fn+H` `0x5F8D`), where `gp+133 != 0` invokes `0x130B8 -> 0x13268`
 directly inside `timer0_irq_handler` (`0x2B80`).
 
+Hardware confirmation of Watchdog recovery (`2026-11-02`, `v1.3.0` `CRC 2f4f4974`):
+the owner confirmed that `v1.3.0` operates across all three connection modes
+(`USB`, `2.4 GHz`, `Bluetooth`), and that when the intermittent runtime freeze
+occurred again on hardware, the Telink B91 hardware watchdog reset the MCU
+after ~4 seconds as configured (`0x8014014C = 0x0B700000`, `0x80140142 = 0x80`),
+recovering input and lighting without toggling the power switch. Because the
+watchdog is cleared inside `cdb_macro_poll` (`0x20013DF8`) on each main-loop
+pass while PCLK remains active, this hardware reset proves that during the
+freeze execution stops reaching `0x20013DF8` for 4 seconds while PCLK is running
+(either trapped in `vec[0]` `0x2D6C` or stuck in a loop outside the main loop
+body).
+
 ## Refactoring and build consolidation — 2026-10-31
 
 - `src/nativeheld/core/`: removed 4 unused legacy headers (`physical_binding.h`,
@@ -165,9 +177,11 @@ unchanged.
   NativeHeld does not fix it. It has not been reported by the owner on hardware.
 - Stock RGB effect 11 remains inconsistent. Effect 5 was checked across
   USB → BLE → USB; separate per-transport RGB profiles were not established.
-- Native chords over BLE, cold startup and sleep passed the owner's manual
-  checks. Native chords over 2.4 GHz and exhaustive sleep/overflow/nested-IRQ
-  cases remain unverified. Modeling is not hardware equivalence.
+- Native chords, layers, Tap-Hold (`MT`/`LT`), `Caps Word`, and `OSM` passed the
+  owner's checks across USB, 2.4 GHz, and BLE (`2026-11-02`), and hardware
+  watchdog recovery (~4 s automatic MCU reset on runtime freeze) was confirmed
+  on hardware. Exhaustive sleep/overflow/nested-IRQ cases remain unverified.
+  Modeling is not hardware equivalence.
 - The macro byte-511 fix is verified offline. Hardware backup/read-back already
   contained zero there, so it did not independently validate a fresh `0xFF` tail.
 - OTA clears settings and recovery requires the OTA interface to enumerate.
